@@ -207,7 +207,7 @@ function jpegDe(cv, w){
   const c2 = document.createElement("canvas");
   c2.width = w; c2.height = Math.round(cv.height * w / cv.width);
   c2.getContext("2d").drawImage(cv, 0, 0, c2.width, c2.height);
-  return c2.toDataURL("image/jpeg", 0.82);
+  return c2.toDataURL("image/jpeg", 0.78);
 }
 async function qrPng(codigo){
   const q = qrcode(0, "H");                      // correção H, igual ao gerador python
@@ -320,7 +320,7 @@ async function montaPdf(cvIsca, pg2, codigo, nomeArq, links, soRetorna){
   pdf.addPage([W2,H2], "portrait");
   pdf.addImage(jpegDe(pg2.cv,1400), "JPEG", 0, 0, W2, H2);
   pdf.addImage(await qrPng(codigo), "PNG",
-    (820+30)/ESC, (pg2.qrY+30)/ESC, 700/ESC, 700/ESC);
+    (820+30)/ESC, (pg2.qrY+30)/ESC, 700/ESC, 700/ESC, undefined, "SLOW");
   (links||[]).forEach(l => pdf.link(l.box[0]/ESC, l.box[1]/ESC,
     (l.box[2]-l.box[0])/ESC, (l.box[3]-l.box[1])/ESC, { url:l.url }));
   if(soRetorna) return pdf.output("datauristring").length;
@@ -465,7 +465,9 @@ async function autotest(){
       data[0].codigo, ["A","B","C","D"], true);
     const tamP = await montaPdf(isca, pgP, data[0].codigo, "x.pdf",
       [{ box:pgP.BTN, url:"https://wa.me/5511" }, { box:pgP.BTN2, url:"https://wa.me/5511" }], true);
-    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP;
+    const dbg = " j1:" + jpegDe(isca,1400).length + " j2:" + jpegDe(pgV.cv,1400).length +
+                " qr:" + (await qrPng(data[0].codigo)).length;
+    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + dbg;
   }catch(err){ document.title = "AUTOTEST-FALHOU: " + err.message; }
 }
 if(location.hash.startsWith("#autotest=")) autotest(); else boot();
