@@ -9,98 +9,157 @@
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
-  :root{ --dourado:#d4a853; --branco:#f5f1ea; --cinza:#968e82; --fundo:#100c0a;
-         --carta:#1a1410; --borda:#2c241c; --verde:#1e7a45; --vermelho:#a32626; }
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:Arial,sans-serif;background:var(--fundo);color:var(--branco);min-height:100vh}
-  h1{font-family:Georgia,serif;font-size:26px;text-align:center;padding:22px 10px 4px}
-  .sub{text-align:center;color:var(--dourado);font-size:12px;letter-spacing:4px;margin-bottom:18px}
-  .abas{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding:0 10px;margin-bottom:18px}
-  .aba{padding:10px 16px;border-radius:10px;background:var(--carta);border:1px solid var(--borda);
-       color:var(--cinza);cursor:pointer;font-weight:bold;font-size:14px}
-  .aba.ativa{background:var(--dourado);color:#140f0a;border-color:var(--dourado)}
-  .tela{display:none;max-width:560px;margin:0 auto;padding:0 14px 60px}
-  .tela.ativa{display:block}
-  .cartao{background:var(--carta);border:1px solid var(--borda);border-radius:14px;padding:20px;margin-bottom:14px}
-  label{display:block;font-size:12px;letter-spacing:2px;color:var(--cinza);margin:12px 0 4px}
-  input,select,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--borda);
-    background:#0c0906;color:var(--branco);font-size:16px}
-  textarea{min-height:70px;font-size:14px}
-  .botao{width:100%;margin-top:16px;padding:16px;border:none;border-radius:12px;cursor:pointer;
-    background:var(--dourado);color:#140f0a;font-weight:bold;font-size:17px;letter-spacing:1px}
-  .botao:disabled{opacity:.5}
-  .botao.secund{background:transparent;border:1px solid var(--borda);color:var(--cinza);font-size:14px;padding:10px}
-  .msg{margin-top:12px;font-size:14px;line-height:1.5;color:var(--cinza);white-space:pre-line}
+  :root{
+    --dourado:#d4a853; --dourado2:#e8c47a; --branco:#f5f1ea; --cinza:#9a917f;
+    --fundo:#0d0a08; --carta:#191310; --carta2:#211a14; --borda:#2f261c;
+    --verde:#2e9d5c; --verde-esc:#123422; --vermelho:#c23b3b; --vermelho-esc:#3d1414;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:Arial,sans-serif;color:var(--branco);min-height:100vh;
+    background:radial-gradient(1200px 500px at 50% -100px, #221709 0%, var(--fundo) 60%) fixed var(--fundo)}
+  .topo{text-align:center;padding:34px 12px 6px}
+  .topo h1{font-family:Georgia,serif;font-size:30px;letter-spacing:.5px}
+  .topo h1 span{color:var(--dourado)}
+  .orn{color:var(--dourado);font-size:11px;letter-spacing:6px;margin:8px 0 2px}
+  .sub{color:var(--cinza);font-size:11px;letter-spacing:5px;margin-bottom:22px}
+  .nav{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;padding:0 12px;margin-bottom:22px;
+       position:sticky;top:0;z-index:5;padding-top:10px;padding-bottom:10px;
+       background:linear-gradient(180deg, rgba(13,10,8,.96) 70%, transparent)}
+  .aba{padding:11px 18px;border-radius:999px;background:var(--carta);border:1px solid var(--borda);
+       color:var(--cinza);cursor:pointer;font-weight:bold;font-size:14px;transition:.15s}
+  .aba:hover{border-color:var(--dourado);color:var(--branco)}
+  .aba.ativa{background:linear-gradient(180deg,var(--dourado2),var(--dourado));color:#191007;border-color:var(--dourado)}
+  .tela{display:none;max-width:640px;margin:0 auto;padding:0 14px 70px}
+  .tela.ativa{display:block;animation:surge .18s ease}
+  @keyframes surge{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+  .cartao{background:linear-gradient(180deg,var(--carta2),var(--carta));border:1px solid var(--borda);
+          border-radius:18px;padding:24px;margin-bottom:16px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  h2{font-family:Georgia,serif;font-size:19px;margin-bottom:6px}
+  .dica{color:var(--cinza);font-size:13px;line-height:1.5;margin-bottom:10px}
+  label{display:block;font-size:11px;letter-spacing:2px;color:var(--cinza);margin:14px 0 5px}
+  input,select,textarea{width:100%;padding:13px;border-radius:12px;border:1px solid var(--borda);
+    background:#0b0806;color:var(--branco);font-size:16px;outline:none;transition:.15s}
+  input:focus,textarea:focus{border-color:var(--dourado)}
+  textarea{min-height:74px;font-size:14px}
+  .botao{width:100%;margin-top:18px;padding:16px;border:none;border-radius:14px;cursor:pointer;
+    background:linear-gradient(180deg,var(--dourado2),var(--dourado));color:#191007;font-weight:bold;
+    font-size:16px;letter-spacing:1px;box-shadow:0 6px 18px rgba(212,168,83,.22);transition:.15s}
+  .botao:hover{transform:translateY(-1px)}
+  .botao:disabled{opacity:.5;transform:none}
+  .botao.secund{background:transparent;border:1px solid var(--borda);color:var(--cinza);
+    font-size:13px;padding:11px;box-shadow:none}
+  .mini{padding:10px 16px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:13px;
+    background:linear-gradient(180deg,var(--dourado2),var(--dourado));color:#191007;white-space:nowrap}
+  .mini.ok{background:var(--verde-esc);color:#7fd9a4;border:1px solid #1e5c38}
+  .mini.fantasma{background:transparent;border:1px solid var(--borda);color:var(--cinza)}
+  .msg{margin-top:14px;font-size:14px;line-height:1.6;color:var(--cinza);white-space:pre-line}
   .msg b{color:var(--branco)}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{color:var(--dourado);text-align:left;padding:8px 6px;border-bottom:1px solid var(--borda);letter-spacing:1px;font-size:11px}
-  td{padding:9px 6px;border-bottom:1px solid #221b14;vertical-align:top}
-  .st{font-weight:bold;padding:3px 8px;border-radius:20px;font-size:11px;white-space:nowrap}
+  .duas{display:flex;gap:12px}.duas>div{flex:1}
+  /* parceiros */
+  .parc{display:flex;align-items:center;gap:12px;padding:14px 4px;border-bottom:1px solid #241c14}
+  .parc:last-of-type{border-bottom:none}
+  .parc .info{flex:1;min-width:0}
+  .parc .nome{font-weight:bold;font-size:15px}
+  .parc .valor{color:var(--dourado);font-size:13px;margin-top:2px}
+  .parc .feito{font-size:11px;color:#7fd9a4;margin-top:2px}
+  /* banco de emitidos */
+  .filtros{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .chip{padding:8px 14px;border-radius:999px;border:1px solid var(--borda);background:transparent;
+    color:var(--cinza);font-size:12px;font-weight:bold;cursor:pointer}
+  .chip.ativa{background:var(--dourado);color:#191007;border-color:var(--dourado)}
+  .cup{background:#14100c;border:1px solid var(--borda);border-radius:14px;padding:16px;margin-bottom:10px;
+       display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .cup .cod{font-family:Consolas,monospace;font-size:17px;font-weight:bold;letter-spacing:2px;color:var(--dourado)}
+  .cup .quem{flex:1;min-width:140px}
+  .cup .quem .n{font-size:14px;font-weight:bold}
+  .cup .quem .d{font-size:12px;color:var(--cinza);margin-top:3px;line-height:1.45}
+  .cup .rs{font-family:Georgia,serif;font-size:20px;font-weight:bold}
+  .st{font-weight:bold;padding:5px 12px;border-radius:999px;font-size:11px;letter-spacing:1px;white-space:nowrap}
   .st.emitido{background:#2b2013;color:var(--dourado)}
-  .st.usado{background:#3d1212;color:#e88}
   .st.confirmado{background:#12303d;color:#8cd}
+  .st.usado{background:var(--vermelho-esc);color:#e89090}
   .st.expirado,.st.cancelado{background:#26221d;color:var(--cinza)}
-  .linhaparc{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid #221b14}
-  .linhaparc b{flex:1}
-  .linhaparc .v{color:var(--dourado);font-weight:bold}
-  a.cod{color:var(--dourado)}
-  #telaLogin{max-width:380px;margin:60px auto;padding:0 14px}
-  .aviso{font-size:12px;color:var(--cinza);margin-top:10px;line-height:1.5}
-  .duas{display:flex;gap:10px}.duas>div{flex:1}
+  .cup .acoes{display:flex;gap:8px;width:100%;justify-content:flex-end}
+  /* dar baixa */
+  .valida{border-radius:16px;padding:26px 20px;text-align:center;margin-top:16px;border:1px solid var(--borda)}
+  .valida.verde{background:var(--verde-esc);border-color:var(--verde)}
+  .valida.vermelha{background:var(--vermelho-esc);border-color:var(--vermelho)}
+  .valida.neutra{background:#241d12;border-color:#6d5a2e}
+  .selo{font-weight:bold;font-size:14px;letter-spacing:3px;padding:8px 18px;border-radius:999px;display:inline-block}
+  .verde .selo{background:var(--verde);color:#fff}
+  .vermelha .selo{background:var(--vermelho);color:#fff}
+  .neutra .selo{background:#6d5a2e;color:#fff}
+  .valida .vv{font-family:Georgia,serif;font-size:52px;font-weight:bold;margin-top:14px}
+  .valida .nn{font-size:18px;margin-top:6px}
+  .valida .dd{color:var(--cinza);font-size:14px;margin-top:10px;line-height:1.5}
+  #pin{width:210px;margin:16px auto 0;display:block;text-align:center;font-size:26px;letter-spacing:10px}
+  #video{width:100%;border-radius:14px;margin-top:12px;display:none}
+  #telaLogin{max-width:400px;margin:40px auto;padding:0 14px}
+  .rodape{text-align:center;color:#564c40;font-size:11px;padding:20px;letter-spacing:1px}
 </style>
 </head>
 <body>
-  <h1>Central de Vouchers & Propaganda</h1>
-  <div class="sub">GRUPO BOTEQUIM · NEXUS</div>
+  <div class="topo">
+    <h1>Central de <span>Vouchers</span> &amp; <span>Propaganda</span></h1>
+    <div class="orn">◆ ◆ ◆</div>
+    <div class="sub">GRUPO BOTEQUIM · NEXUS</div>
+  </div>
 
   <!-- ============ LOGIN ============ -->
   <div id="telaLogin">
     <div class="cartao">
+      <h2>Entrar</h2>
+      <div class="dica">Mesmo login do painel de Reservas.</div>
       <label>E-MAIL</label><input id="lgEmail" type="email" autocomplete="username">
       <label>SENHA</label><input id="lgSenha" type="password" autocomplete="current-password">
       <button class="botao" id="btnLogin">ENTRAR</button>
       <div class="msg" id="lgMsg"></div>
-      <div class="aviso">Mesmo login do painel de Reservas.</div>
     </div>
   </div>
 
   <!-- ============ APP ============ -->
   <div id="app" style="display:none">
-    <div class="abas">
-      <div class="aba ativa" data-t="vales">🎟️ Vales</div>
+    <div class="nav">
+      <div class="aba ativa" data-t="vales">🎟️ Emitir</div>
       <div class="aba" data-t="mensais">📅 Mensais</div>
       <div class="aba" data-t="propaganda">📣 Propaganda</div>
-      <div class="aba" data-t="controle">📋 Controle</div>
+      <div class="aba" data-t="banco">🗂️ Emitidos</div>
+      <div class="aba" data-t="baixa">✅ Dar baixa</div>
     </div>
 
-    <!-- ---- VALES AVULSOS ---- -->
+    <!-- ---- EMITIR VALE ---- -->
     <div class="tela ativa" id="t-vales">
       <div class="cartao">
+        <h2>Novo vale-presente</h2>
+        <div class="dica">Gera o PDF na hora, já registrado no banco com QR que valida nas casas.</div>
         <div class="duas">
           <div><label>VALOR (R$)</label><input id="vlValor" type="number" value="50"></div>
           <div><label>QUANTIDADE</label><input id="vlQtd" type="number" value="1" min="1" max="30"></div>
         </div>
-        <label>NOME (opcional — voucher nominal)</label><input id="vlNome" placeholder="vazio = ao portador">
+        <label>NOME (opcional — vale nominal)</label><input id="vlNome" placeholder="vazio = ao portador">
         <label>VALIDADE (dias)</label><input id="vlDias" type="number" value="90">
-        <button class="botao" id="btnVales">GERAR VOUCHER(S) EM PDF</button>
+        <button class="botao" id="btnVales">🎟️ GERAR PDF</button>
         <div class="msg" id="vlMsg"></div>
       </div>
     </div>
 
-    <!-- ---- MENSAIS (PERMUTA) ---- -->
+    <!-- ---- MENSAIS ---- -->
     <div class="tela" id="t-mensais">
       <div class="cartao">
-        <div id="listaParc">carregando parceiros…</div>
+        <h2>Permuta mensal — <span id="mesTitulo" style="color:var(--dourado)"></span></h2>
+        <div class="dica">Cada parceiro tem seu botão. Quem já tem voucher no mês aparece com ✓
+        — clicar de novo só baixa o mesmo PDF (não emite outro).</div>
+        <div id="listaParc">carregando…</div>
         <button class="botao" id="btnMes"></button>
         <div class="msg" id="mesMsg"></div>
-        <div class="aviso">Trava anti-duplicado: parceiro que já tem voucher neste mês
-        não ganha outro — o botão só baixa o PDF de novo.</div>
       </div>
     </div>
 
     <!-- ---- PROPAGANDA ---- -->
     <div class="tela" id="t-propaganda">
       <div class="cartao">
+        <h2>Peça de propaganda</h2>
+        <div class="dica">Mesma arte do "Tem um prato": isca na capa, revelação com QR único que valida nas casas.</div>
         <label>NOME DO CLIENTE (opcional)</label><input id="ppNome" placeholder="vazio = peça genérica">
         <label>PRATO / PRÊMIO</label><input id="ppPrato" value="Torresmo de rolo">
         <div class="duas">
@@ -114,30 +173,50 @@
 Unidade 2 — endereço aqui
 Unidade 3 — endereço aqui
 Unidade 4 — endereço aqui</textarea>
-        <label style="display:flex;align-items:center;gap:8px;margin-top:14px">
+        <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;letter-spacing:0">
           <input type="checkbox" id="ppPrimeiro" checked style="width:auto"> 1º contato (botão "não quero receber" visível)
         </label>
-        <button class="botao" id="btnProp">GERAR PROPAGANDA EM PDF</button>
+        <button class="botao" id="btnProp">📣 GERAR PDF</button>
         <div class="msg" id="ppMsg"></div>
-        <div class="aviso">A peça sai com QR único que valida nas casas, igual ao voucher.</div>
       </div>
     </div>
 
-    <!-- ---- CONTROLE ---- -->
-    <div class="tela" id="t-controle">
+    <!-- ---- BANCO DE EMITIDOS ---- -->
+    <div class="tela" id="t-banco">
       <div class="cartao">
-        <input id="ctBusca" placeholder="buscar código ou nome…" style="margin-bottom:12px">
-        <div style="overflow-x:auto"><table id="ctTab">
-          <thead><tr><th>CÓDIGO</th><th>NOME</th><th>R$</th><th>STATUS</th><th>USO</th></tr></thead>
-          <tbody></tbody>
-        </table></div>
-        <button class="botao secund" id="btnCtMais" style="margin-top:12px">carregar mais</button>
-        <div class="aviso">A baixa acontece na casa: funcionário escaneia o QR com a câmera
-        do celular → tela verde → digita o PIN da casa → baixa registrada aqui na hora.
-        Clicar num código abre a mesma tela de validação.</div>
+        <h2>Tudo que já foi gerado</h2>
+        <input id="ctBusca" placeholder="🔎 buscar código ou nome…">
+        <div class="filtros">
+          <button class="chip ativa" data-f="">Todos</button>
+          <button class="chip" data-f="emitido">Válidos</button>
+          <button class="chip" data-f="usado">Usados</button>
+          <button class="chip" data-f="expirado">Expirados</button>
+        </div>
+        <div id="ctLista"></div>
+        <button class="botao secund" id="btnCtMais">carregar mais</button>
       </div>
     </div>
+
+    <!-- ---- DAR BAIXA ---- -->
+    <div class="tela" id="t-baixa">
+      <div class="cartao">
+        <h2>Dar baixa</h2>
+        <div class="dica">Nas casas: o funcionário escaneia o QR com a câmera do celular e cai nesta
+        mesma tela. Aqui você também pode digitar o código ou usar a câmera.</div>
+        <div class="duas">
+          <div><input id="bxCodigo" placeholder="BQ-XXXXX" style="text-transform:uppercase;font-family:Consolas,monospace;letter-spacing:3px"></div>
+          <div style="flex:0 0 auto;display:flex;gap:8px">
+            <button class="mini" id="btnBxBuscar">BUSCAR</button>
+            <button class="mini fantasma" id="btnScan">📷</button>
+          </div>
+        </div>
+        <video id="video" muted playsinline></video>
+        <div id="bxResultado"></div>
+      </div>
+    </div>
+
   </div>
+  <div class="rodape">NEXUS · GRUPO BOTEQUIM — uso interno</div>
 
 <script>
 const SB_URL  = "https://kuyhkltbwlkvtgbabscv.supabase.co";
@@ -145,21 +224,22 @@ const SB_KEY  = "sb_publishable_dW-JZ00n74dSLCrznBJ6gw_K8AE1VIq";
 const VAL_URL = "https://grupobotequim.github.io/vouchers-botequim";
 const sb = window.supabase.createClient(SB_URL, SB_KEY);
 const $ = id => document.getElementById(id);
-const mesLabel = () => {
-  const m = ["janeiro","fevereiro","março","abril","maio","junho","julho",
-             "agosto","setembro","outubro","novembro","dezembro"];
-  const d = new Date();
-  return m[d.getMonth()] + "/" + d.getFullYear();
-};
-const mesChave = () => new Date().toISOString().slice(0,7);   // 2026-07
+const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho",
+               "agosto","setembro","outubro","novembro","dezembro"];
+const mesLabel = () => { const d = new Date(); return MESES[d.getMonth()] + "/" + d.getFullYear(); };
+const mesChave = () => new Date().toISOString().slice(0,7);
 const semAcento = s => s.normalize("NFD").replace(/[̀-ͯ]/g,"")
                         .replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"");
+const dataBR = iso => { const [a,m,d] = iso.slice(0,10).split("-"); return d+"/"+m+"/"+a; };
+const validadeDe = dias => { const d = new Date(Date.now()+dias*864e5);
+  return d.toISOString().slice(0,10); };
+const fmtRS = v => "R$ " + Number(v).toLocaleString("pt-BR");
 
-// ==================== LOGIN ====================
+// ==================== LOGIN / ABAS ====================
 async function boot(){
   const { data } = await sb.auth.getSession();
   if(data.session){ $("telaLogin").style.display="none"; $("app").style.display="block";
-    carregarParceiros(); carregarControle(true); }
+    carregarParceiros(); carregarBanco(true); }
 }
 $("btnLogin").onclick = async () => {
   $("lgMsg").textContent = "entrando…";
@@ -168,18 +248,16 @@ $("btnLogin").onclick = async () => {
   if(error){ $("lgMsg").textContent = "Login falhou: " + error.message; return; }
   boot();
 };
-
-// ==================== ABAS ====================
 document.querySelectorAll(".aba").forEach(a => a.onclick = () => {
   document.querySelectorAll(".aba").forEach(x => x.classList.remove("ativa"));
   document.querySelectorAll(".tela").forEach(x => x.classList.remove("ativa"));
   a.classList.add("ativa"); $("t-" + a.dataset.t).classList.add("ativa");
-  if(a.dataset.t === "controle") carregarControle(true);
+  if(a.dataset.t === "banco") carregarBanco(true);
+  if(a.dataset.t === "mensais") carregarParceiros();
 });
 
-// ==================== ARTE (canvas, mesma receita do gerar_voucher.py) ====================
-const CORES = { dourado:"#d4a853", branco:"#f5f1ea", cinza:"#968e82",
-                fundo:"#100c0a", escuro:"#14100a" };
+// ==================== ARTE (mesma receita testada) ====================
+const CORES = { dourado:"#d4a853", branco:"#f5f1ea", cinza:"#968e82", fundo:"#100c0a" };
 let fotoPadrao = null;
 function carregaImg(src){ return new Promise((res,rej)=>{
   const i = new Image(); i.onload = ()=>res(i); i.onerror = rej; i.src = src; }); }
@@ -191,8 +269,7 @@ async function fotoEscolhida(inputEl){
 }
 function cover(ctx, img, W, H){
   const r = Math.max(W/img.width, H/img.height);
-  const w = img.width*r, h = img.height*r;
-  ctx.drawImage(img, (W-w)/2, (H-h)/2, w, h);
+  ctx.drawImage(img, (W-img.width*r)/2, (H-img.height*r)/2, img.width*r, img.height*r);
 }
 function vinheta(ctx, W, H, forca){
   const g = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.32, W/2, H/2, Math.max(W,H)*0.72);
@@ -210,7 +287,7 @@ function jpegDe(cv, w){
   return c2.toDataURL("image/jpeg", 0.78);
 }
 async function qrPng(codigo){
-  const q = qrcode(0, "H");                      // correção H, igual ao gerador python
+  const q = qrcode(0, "H");
   q.addData(VAL_URL + "/?c=" + codigo); q.make();
   const n = q.getModuleCount(), margem = 2, cel = Math.floor(700 /(n + margem*2));
   const lado = cel * (n + margem*2);
@@ -222,8 +299,11 @@ async function qrPng(codigo){
     if(q.isDark(r,c)) ctx.fillRect((c+margem)*cel, (r+margem)*cel, cel, cel);
   return cv.toDataURL("image/png");
 }
-
-// Página 1 — a isca (2400x1200, zona segura central; valor escondido)
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x,y+h,r); ctx.closePath();
+}
 function pagIsca(img, saudacao, l1, l2, l3, sub, rodape){
   const W=2400, H=1200, cv=document.createElement("canvas");
   cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
@@ -239,8 +319,6 @@ function pagIsca(img, saudacao, l1, l2, l3, sub, rodape){
   texto(ctx, W, 906, rodape, "bold 40px Arial", CORES.cinza, 9);
   return cv;
 }
-
-// Página 2 do VOUCHER (2400x3200)
 function pagVoucher(img, valor, nome, codigo, validadeTxt){
   const W=2400, H=3200, cv=document.createElement("canvas");
   cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
@@ -265,8 +343,6 @@ function pagVoucher(img, valor, nome, codigo, validadeTxt){
   texto(ctx, W, 3158, "Uso único · sem troco · não vale dinheiro", "32px Arial", "#6e6860");
   return { cv, qrY: 2160 };
 }
-
-// Página 2 da PROPAGANDA (2400x3200/3400, igual ao cupom do torresmo)
 function pagPropaganda(img, prato, valorTxt, nome, dataTxt, codigo, enderecos, primeiro){
   const W=2400, H=(primeiro?3400:3200), cv=document.createElement("canvas");
   cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
@@ -287,7 +363,6 @@ function pagPropaganda(img, prato, valorTxt, nome, dataTxt, codigo, enderecos, p
   texto(ctx, W, 1969, faixa, "bold 40px Arial", CORES.dourado);
   ctx.fillStyle = CORES.branco; ctx.fillRect((W-760)/2, 2060, 760, 760);
   texto(ctx, W, 2914, codigo, "bold 54px Arial", CORES.branco, 8);
-  // botão reserva
   const BTN = [300, 2960, 2100, 3110];
   ctx.fillStyle = CORES.dourado; roundRect(ctx, BTN[0], BTN[1], BTN[2]-BTN[0], BTN[3]-BTN[1], 75); ctx.fill();
   texto(ctx, W, BTN[1]+100, "FAZER MINHA RESERVA", "bold 62px Arial", "#140f0a");
@@ -299,19 +374,12 @@ function pagPropaganda(img, prato, valorTxt, nome, dataTxt, codigo, enderecos, p
     roundRect(ctx, BTN2[0], BTN2[1], BTN2[2]-BTN2[0], BTN2[3]-BTN2[1], 60); ctx.stroke();
     texto(ctx, W, BTN2[1]+80, "NÃO QUERO MAIS RECEBER", "bold 44px Arial", CORES.cinza);
     yEnd = 3392;
-  } else { yEnd = 3160+40; }
+  } else { yEnd = 3200; }
   const ends = enderecos.filter(x=>x.trim());
   texto(ctx, W, yEnd,    ends.slice(0,2).join("  |  "), "32px Arial", "#6e6860");
   texto(ctx, W, yEnd+42, ends.slice(2,4).join("  |  "), "32px Arial", "#6e6860");
   return { cv, qrY: 2060, BTN, BTN2 };
 }
-function roundRect(ctx,x,y,w,h,r){
-  ctx.beginPath();
-  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
-  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x,y+h,r); ctx.closePath();
-}
-
-// Monta o PDF (2 páginas, QR em PNG por cima — JPEG borra QR)
 async function montaPdf(cvIsca, pg2, codigo, nomeArq, links, soRetorna){
   const ESC = 3, { jsPDF } = window.jspdf;
   const W1=2400/ESC, H1=1200/ESC, W2=2400/ESC, H2=pg2.cv.height/ESC;
@@ -328,7 +396,18 @@ async function montaPdf(cvIsca, pg2, codigo, nomeArq, links, soRetorna){
 }
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
-// ==================== VALES AVULSOS ====================
+// gera e baixa o PDF de UM vale (usado por emitir, mensais e re-download do banco)
+async function pdfVale(codigo, valor, nome, validadeIso){
+  const img = await fotoEscolhida(null);
+  const isca = pagIsca(img,
+    nome ? "BOA NOITE, " + nome.toUpperCase() + "." : "VOCÊ RECEBEU UM PRESENTE.",
+    "Tem um vale", "com o seu", "nome nele.", "Abra para revelar o valor.", "BOTEQUIM SÃO PAULO");
+  const pg2 = pagVoucher(img, Number(valor), nome, codigo, "válido até " + dataBR(validadeIso));
+  await montaPdf(isca, pg2, codigo,
+    "Seu-vale-presente-Botequim-R" + Number(valor) + (nome ? "-" + semAcento(nome) : "") + ".pdf");
+}
+
+// ==================== EMITIR VALE ====================
 $("btnVales").onclick = async () => {
   const valor = Number($("vlValor").value), qtd = Math.min(30, Number($("vlQtd").value)||1);
   const nome = $("vlNome").value.trim(), dias = Number($("vlDias").value)||90;
@@ -340,56 +419,54 @@ $("btnVales").onclick = async () => {
     p_campanha: "Vales avulsos " + mesChave(), p_tipo: "credito",
     p_itens: itens, p_validade_dias: dias });
   if(error){ $("vlMsg").textContent = "Erro: " + error.message; $("btnVales").disabled=false; return; }
-  const img = await fotoEscolhida(null);
-  for(const c of data){
-    const isca = pagIsca(img,
-      c.nome ? "BOA NOITE, " + c.nome.toUpperCase() + "." : "VOCÊ RECEBEU UM PRESENTE.",
-      "Tem um vale", "com o seu", "nome nele.", "Abra para revelar o valor.", "BOTEQUIM SÃO PAULO");
-    const pg2 = pagVoucher(img, c.valor, c.nome, c.codigo, "válido por " + dias + " dias");
-    await montaPdf(isca, pg2, c.codigo,
-      "Seu-vale-presente-Botequim-R" + c.valor + (c.nome ? "-" + semAcento(c.nome) : "") + ".pdf");
-    await pausa(500);
-  }
-  $("vlMsg").innerHTML = "<b>" + data.length + " voucher(s) gerado(s).</b>\n" +
-    data.map(c => c.codigo + " — R$ " + c.valor).join("\n");
-  $("btnVales").disabled = false; carregarControle(true);
+  for(const c of data){ await pdfVale(c.codigo, c.valor, c.nome, validadeDe(dias)); await pausa(500); }
+  $("vlMsg").innerHTML = "<b>" + data.length + " vale(s) gerado(s) ✔</b>\n" +
+    data.map(c => c.codigo + " — " + fmtRS(c.valor)).join("\n");
+  $("btnVales").disabled = false;
 };
 
 // ==================== MENSAIS ====================
 let PARCEIROS = [];
 async function carregarParceiros(){
-  $("btnMes").textContent = "GERAR VOUCHERS DE " + mesLabel().toUpperCase();
-  const { data, error } = await sb.from("crm_parceiros_mensais")
-    .select().eq("ativo", true).order("valor", { ascending:false });
-  if(error){ $("listaParc").textContent = "erro ao carregar: " + error.message; return; }
-  PARCEIROS = data;
-  $("listaParc").innerHTML = data.map(p =>
-    "<div class='linhaparc'><b>" + p.nome + "</b><span class='v'>R$ " +
-    Number(p.valor).toLocaleString("pt-BR") + "/mês</span></div>").join("");
+  $("mesTitulo").textContent = mesLabel();
+  $("btnMes").textContent = "⚡ GERAR TODOS DE " + mesLabel().toUpperCase();
+  const [{ data: parc, error }, { data: jaFeitos }] = await Promise.all([
+    sb.from("crm_parceiros_mensais").select().eq("ativo", true).order("valor", { ascending:false }),
+    sb.from("cupons").select("nome, codigo, valor, validade, campanhas!inner(nome)")
+      .eq("campanhas.nome", "Permuta mensal " + mesChave())
+  ]);
+  if(error){ $("listaParc").textContent = "erro: " + error.message; return; }
+  PARCEIROS = parc;
+  const feitos = Object.fromEntries((jaFeitos||[]).map(c => [c.nome, c]));
+  $("listaParc").innerHTML = parc.map((p,i) => {
+    const f = feitos[p.nome];
+    return "<div class='parc'><div class='info'><div class='nome'>" + p.nome +
+      "</div><div class='valor'>" + fmtRS(p.valor) + "/mês</div>" +
+      (f ? "<div class='feito'>✓ emitido este mês — " + f.codigo + "</div>" : "") +
+      "</div><button class='mini" + (f ? " ok" : "") + "' data-i='" + i + "'>" +
+      (f ? "BAIXAR PDF" : "GERAR") + "</button></div>";
+  }).join("");
+  $("listaParc").querySelectorAll(".mini").forEach(b => b.onclick = () => gerarMensal([PARCEIROS[b.dataset.i]], b));
 }
-$("btnMes").onclick = async () => {
-  $("btnMes").disabled = true; $("mesMsg").textContent = "emitindo no banco…";
+async function gerarMensal(lista, botao){
+  if(botao){ botao.disabled = true; } $("btnMes").disabled = true;
+  $("mesMsg").textContent = "emitindo…";
   const { data, error } = await sb.rpc("crm_emitir_lote", {
     p_campanha: "Permuta mensal " + mesChave(), p_tipo: "credito",
-    p_itens: PARCEIROS.map(p => ({ nome: p.nome, valor: p.valor })),
-    p_validade_dias: 90 });
-  if(error){ $("mesMsg").textContent = "Erro: " + error.message; $("btnMes").disabled=false; return; }
-  const img = await fotoEscolhida(null);
+    p_itens: lista.map(p => ({ nome: p.nome, valor: p.valor })), p_validade_dias: 90 });
+  if(error){ $("mesMsg").textContent = "Erro: " + error.message; $("btnMes").disabled=false; if(botao) botao.disabled=false; return; }
   for(const c of data){
-    const isca = pagIsca(img, "BOA NOITE, " + c.nome.toUpperCase() + ".",
-      "Tem um vale", "com o seu", "nome nele.", "Abra para revelar o valor.", "BOTEQUIM SÃO PAULO");
-    const pg2 = pagVoucher(img, c.valor, c.nome, c.codigo, "válido por 90 dias");
-    await montaPdf(isca, pg2, c.codigo,
-      "Vale-" + semAcento(c.nome) + "-R" + c.valor + "-" + mesChave() + ".pdf");
+    await pdfVale(c.codigo, c.valor, c.nome, validadeDe(90));
     await pausa(500);
   }
   const novos = data.filter(c => !c.ja_existia).length;
-  const repet = data.length - novos;
-  $("mesMsg").innerHTML = "<b>" + novos + " novo(s) emitido(s)" +
-    (repet ? " · " + repet + " já existia(m) neste mês (PDF baixado de novo, mesmo código)" : "") + ".</b>\n" +
-    data.map(c => c.codigo + " — " + c.nome + " — R$ " + c.valor).join("\n");
-  $("btnMes").disabled = false; carregarControle(true);
-};
+  $("mesMsg").innerHTML = "<b>" + novos + " novo(s) · " + (data.length-novos) +
+    " já existia(m) (mesmo código, PDF baixado de novo) ✔</b>\n" +
+    data.map(c => c.codigo + " — " + c.nome + " — " + fmtRS(c.valor)).join("\n");
+  $("btnMes").disabled = false;
+  carregarParceiros();
+}
+$("btnMes").onclick = () => gerarMensal(PARCEIROS, null);
 
 // ==================== PROPAGANDA ====================
 $("btnProp").onclick = async () => {
@@ -417,36 +494,140 @@ $("btnProp").onclick = async () => {
     url: "https://wa.me/" + wpp + "?text=" + encodeURIComponent("SAIR - " + c.codigo) });
   await montaPdf(isca, pg2, c.codigo,
     (nome ? semAcento(nome) : "Botequim") + "-seu-premio-de-R" + valor + ".pdf", links);
-  $("ppMsg").innerHTML = "<b>Propaganda gerada.</b> Código " + c.codigo +
-    " · QR valida nas casas igual voucher.";
-  $("btnProp").disabled = false; carregarControle(true);
+  $("ppMsg").innerHTML = "<b>Peça gerada ✔</b> Código " + c.codigo + " — QR valida nas casas.";
+  $("btnProp").disabled = false;
 };
 
-// ==================== CONTROLE ====================
-let ctPagina = 0;
-async function carregarControle(reset){
-  if(reset){ ctPagina = 0; }
+// ==================== BANCO DE EMITIDOS ====================
+let ctPagina = 0, ctFiltro = "";
+document.querySelectorAll(".chip").forEach(c => c.onclick = () => {
+  document.querySelectorAll(".chip").forEach(x => x.classList.remove("ativa"));
+  c.classList.add("ativa"); ctFiltro = c.dataset.f; carregarBanco(true);
+});
+async function carregarBanco(reset){
+  if(reset) ctPagina = 0;
   const busca = $("ctBusca").value.trim();
   let q = sb.from("cupons")
-    .select("codigo,nome,valor,status,usado_em,casas:casa_uso_id(nome_curto)")
+    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,casas:casa_uso_id(nome_curto)")
     .order("emitido_em", { ascending:false })
-    .range(ctPagina*30, ctPagina*30+29);
+    .range(ctPagina*20, ctPagina*20+19);
+  if(ctFiltro) q = q.eq("status", ctFiltro);
   if(busca) q = q.or("codigo.ilike.%"+busca+"%,nome.ilike.%"+busca+"%");
   const { data, error } = await q;
   if(error) return;
-  const linhas = data.map(c => "<tr><td><a class='cod' target='_blank' href='" +
-      VAL_URL + "/?c=" + c.codigo + "'>" + c.codigo + "</a></td><td>" +
-      (c.nome||"") + "</td><td>" + (c.valor ? Number(c.valor).toLocaleString("pt-BR") : "") +
-      "</td><td><span class='st " + c.status + "'>" + c.status.toUpperCase() + "</span></td><td>" +
-      (c.usado_em ? new Date(c.usado_em).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
-        (c.casas ? "<br>" + c.casas.nome_curto : "") : "") + "</td></tr>").join("");
-  const tb = $("ctTab").querySelector("tbody");
-  if(ctPagina === 0) tb.innerHTML = linhas; else tb.innerHTML += linhas;
+  const html = data.map(c => {
+    const uso = c.usado_em ? "Baixa " + new Date(c.usado_em).toLocaleString("pt-BR",
+      {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
+      (c.casas ? " · " + c.casas.nome_curto : "") : "";
+    return "<div class='cup'>" +
+      "<div class='quem'><span class='cod'>" + c.codigo + "</span>" +
+      "<div class='n'>" + (c.nome && c.nome !== "—" ? c.nome : "ao portador") + "</div>" +
+      "<div class='d'>emitido " + dataBR(c.emitido_em) + " · vale até " + dataBR(c.validade) +
+      (uso ? "<br>" + uso : "") + "</div></div>" +
+      "<div class='rs'>" + (c.valor ? fmtRS(c.valor) : "") + "</div>" +
+      "<span class='st " + c.status + "'>" + c.status.toUpperCase() + "</span>" +
+      "<div class='acoes'>" +
+      (c.tipo === "credito" ? "<button class='mini fantasma' onclick=\"rePdf('" + c.codigo + "'," +
+        Number(c.valor||0) + ",'" + (c.nome && c.nome!=="—" ? c.nome.replace(/'/g,"") : "") + "','" +
+        c.validade + "')\">⬇ PDF</button>" : "") +
+      "<button class='mini fantasma' onclick=\"verBaixa('" + c.codigo + "')\">✅ dar baixa</button>" +
+      "</div></div>";
+  }).join("");
+  const alvo = $("ctLista");
+  if(ctPagina === 0) alvo.innerHTML = html || "<div class='dica'>nada por aqui ainda.</div>";
+  else alvo.innerHTML += html;
 }
-$("ctBusca").oninput = () => carregarControle(true);
-$("btnCtMais").onclick = () => { ctPagina++; carregarControle(false); };
+window.rePdf = (codigo, valor, nome, validade) => pdfVale(codigo, valor, nome, validade);
+$("ctBusca").oninput = () => carregarBanco(true);
+$("btnCtMais").onclick = () => { ctPagina++; carregarBanco(false); };
 
-// autoteste headless: #autotest=email:senha — roda o fluxo real sem baixar arquivo
+// ==================== DAR BAIXA ====================
+window.verBaixa = codigo => {
+  document.querySelector('.aba[data-t="baixa"]').click();
+  $("bxCodigo").value = codigo; consultarBaixa();
+};
+async function rpcPub(fn, args){
+  const r = await fetch(SB_URL + "/rest/v1/rpc/" + fn, {
+    method:"POST", headers:{ "Content-Type":"application/json",
+      "apikey":SB_KEY, "Authorization":"Bearer " + SB_KEY },
+    body: JSON.stringify(args) });
+  if(!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+function telaBaixa(info, codigo){
+  let cls, selo, extra = "";
+  if(info.status === "emitido" || info.status === "confirmado"){
+    cls = "verde"; selo = "✓ VÁLIDO";
+    extra = "<input id='pin' type='tel' inputmode='numeric' maxlength='6' placeholder='PIN'>" +
+            "<button class='botao' id='btnBaixar'>DAR BAIXA</button>" +
+            "<div class='dd' id='pinErro'></div>";
+  } else if(info.status === "usado"){
+    cls = "vermelha"; selo = "✗ JÁ USADO";
+    extra = "<div class='dd'>Baixa em " + new Date(info.usado_em).toLocaleString("pt-BR",
+      {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
+      (info.casa_uso ? " · " + info.casa_uso : "") + "</div>";
+  } else if(info.status === "nao_encontrado"){
+    cls = "neutra"; selo = "NÃO ENCONTRADO";
+  } else { cls = "neutra"; selo = info.status.toUpperCase(); }
+  $("bxResultado").innerHTML = "<div class='valida " + cls + "'>" +
+    "<span class='selo'>" + selo + "</span>" +
+    (info.valor ? "<div class='vv'>" + fmtRS(info.valor) + "</div>" : "") +
+    (info.nome && info.nome !== "—" ? "<div class='nn'>" + info.nome + "</div>" : "") +
+    "<div class='dd'>" + codigo + (info.validade ? " · vale até " + dataBR(info.validade) : "") + "</div>" +
+    extra + "</div>";
+  const b = $("btnBaixar");
+  if(b) b.onclick = async () => {
+    const pin = $("pin").value.trim();
+    if(pin.length < 4){ $("pinErro").textContent = "Digite o PIN da casa."; return; }
+    b.disabled = true; b.textContent = "DANDO BAIXA…";
+    try{
+      const r = await rpcPub("crm_baixar_cupom", { p_codigo: codigo, p_pin: pin });
+      if(r.ok === false && r.motivo === "pin"){ $("pinErro").textContent = "PIN errado.";
+        b.disabled = false; b.textContent = "DAR BAIXA"; return; }
+      telaBaixa(r, codigo); navigator.vibrate && navigator.vibrate(120);
+    }catch(e){ $("pinErro").textContent = "Falhou, tenta de novo."; b.disabled = false; }
+  };
+}
+async function consultarBaixa(){
+  const codigo = $("bxCodigo").value.trim().toUpperCase();
+  if(!codigo) return;
+  $("bxResultado").innerHTML = "<div class='msg'>consultando…</div>";
+  try{ telaBaixa(await rpcPub("crm_consultar_cupom", { p_codigo: codigo }), codigo); }
+  catch(e){ $("bxResultado").innerHTML = "<div class='msg'>sem conexão — tenta de novo.</div>"; }
+}
+$("btnBxBuscar").onclick = consultarBaixa;
+$("bxCodigo").addEventListener("keydown", e => { if(e.key === "Enter") consultarBaixa(); });
+
+// câmera (celular Android/Chrome): lê o QR e já consulta
+let scanStream = null;
+$("btnScan").onclick = async () => {
+  const v = $("video");
+  if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; v.style.display="none"; return; }
+  if(!("BarcodeDetector" in window)){
+    $("bxResultado").innerHTML = "<div class='msg'>Este navegador não tem leitor embutido — usa a câmera normal do celular apontada pro QR, ou digita o código.</div>"; return;
+  }
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:"environment" } });
+    v.srcObject = scanStream; v.style.display = "block"; await v.play();
+    const det = new BarcodeDetector({ formats:["qr_code"] });
+    const loop = async () => {
+      if(!scanStream) return;
+      try{
+        const achados = await det.detect(v);
+        for(const a of achados){
+          const m = a.rawValue.match(/[?&]c=([A-Za-z0-9-]+)/);
+          if(m){ $("bxCodigo").value = m[1].toUpperCase();
+            scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; v.style.display="none";
+            consultarBaixa(); return; }
+        }
+      }catch(e){}
+      requestAnimationFrame(loop);
+    };
+    loop();
+  }catch(e){ $("bxResultado").innerHTML = "<div class='msg'>câmera bloqueada: " + e.message + "</div>"; }
+};
+
+// autoteste headless: #autotest=email:senha — fluxo real sem baixar arquivo
 async function autotest(){
   try{
     const [em, se] = decodeURIComponent(location.hash.slice(10)).split(":");
@@ -459,15 +640,21 @@ async function autotest(){
     const img = await fotoEscolhida(null);
     const isca = pagIsca(img, "BOA NOITE, AUTOTESTE.", "Tem um vale", "com o seu",
       "nome nele.", "Abra para revelar o valor.", "BOTEQUIM SÃO PAULO");
-    const pgV = pagVoucher(img, 1, "Autoteste", data[0].codigo, "válido por 1 dia");
+    const pgV = pagVoucher(img, 1, "Autoteste", data[0].codigo, "válido até 31/07/2026");
     const tamV = await montaPdf(isca, pgV, data[0].codigo, "x.pdf", null, true);
     const pgP = pagPropaganda(img, "Prato Teste", "R$ 1", "Autoteste", "quinta, 06/08",
       data[0].codigo, ["A","B","C","D"], true);
     const tamP = await montaPdf(isca, pgP, data[0].codigo, "x.pdf",
       [{ box:pgP.BTN, url:"https://wa.me/5511" }, { box:pgP.BTN2, url:"https://wa.me/5511" }], true);
-    const dbg = " j1:" + jpegDe(isca,1400).length + " j2:" + jpegDe(pgV.cv,1400).length +
-                " qr:" + (await qrPng(data[0].codigo)).length;
-    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + dbg;
+    // banco + consulta + parceiros (as 3 leituras das abas novas)
+    const { error: e3 } = await sb.from("cupons").select("codigo, casas:casa_uso_id(nome_curto), campanhas(nome)").limit(3);
+    if(e3) throw new Error("banco: " + e3.message);
+    const { error: e4 } = await sb.from("cupons").select("nome, campanhas!inner(nome)")
+      .eq("campanhas.nome", "Permuta mensal " + mesChave()).limit(3);
+    if(e4) throw new Error("parceiros-feitos: " + e4.message);
+    const cons = await rpcPub("crm_consultar_cupom", { p_codigo: data[0].codigo });
+    if(!cons.status) throw new Error("consulta vazia");
+    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + " st:" + cons.status;
   }catch(err){ document.title = "AUTOTEST-FALHOU: " + err.message; }
 }
 if(location.hash.startsWith("#autotest=")) autotest(); else boot();
