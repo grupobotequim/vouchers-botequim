@@ -5,9 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Voucher Botequim</title>
 <meta name="robots" content="noindex">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --dourado:#d4a853; --branco:#f5f1ea; --cinza:#968e82;
+    --dourado:#d4a853; --dourado2:#e8c47a; --branco:#f5f1ea; --cinza:#968e82;
     --fundo:#100c0a; --verde:#1e7a45; --verde-esc:#0f3d23;
     --vermelho:#a32626; --vermelho-esc:#4a1010; --laranja:#b5761f;
   }
@@ -38,20 +39,22 @@
   .cod{font-family:Arial,sans-serif;font-weight:bold;letter-spacing:4px;
     color:var(--cinza);font-size:15px;margin-top:18px}
   .detalhe{color:var(--cinza);font-size:16px;margin-top:14px;line-height:1.5}
-  .baixa{width:100%;max-width:420px;margin-top:22px;text-align:center}
-  .baixa label{font-family:Arial,sans-serif;font-size:13px;letter-spacing:2px;color:var(--cinza)}
-  #pin{
-    width:200px;display:block;margin:10px auto 14px;padding:14px;text-align:center;
-    font-size:28px;letter-spacing:12px;border-radius:12px;border:1px solid #3a2f24;
-    background:#0c0906;color:var(--branco);font-family:Arial,sans-serif;
-  }
-  #btnBaixa{
-    width:100%;padding:18px;border:none;border-radius:14px;cursor:pointer;
-    background:var(--dourado);color:#140f0a;font-family:Arial,sans-serif;
-    font-weight:bold;font-size:19px;letter-spacing:2px;
-  }
-  #btnBaixa:disabled{opacity:.45}
-  .erro-pin{color:#e88;font-family:Arial,sans-serif;font-size:14px;margin-top:10px;min-height:18px}
+  .staff{width:100%;max-width:420px;margin-top:18px;font-family:Arial,sans-serif}
+  .staff .caixa{background:#1a1410;border:1px solid #2c241c;border-radius:16px;padding:22px}
+  .staff h3{font-size:14px;letter-spacing:2px;color:var(--dourado);margin-bottom:8px;text-align:center}
+  .staff label{display:block;font-size:11px;letter-spacing:2px;color:var(--cinza);margin:12px 0 4px}
+  .staff input,.staff select{width:100%;padding:13px;border-radius:11px;border:1px solid #3a2f24;
+    background:#0c0906;color:var(--branco);font-size:16px}
+  .btn{width:100%;margin-top:16px;padding:16px;border:none;border-radius:13px;cursor:pointer;
+    background:linear-gradient(180deg,var(--dourado2),var(--dourado));color:#140f0a;
+    font-family:Arial,sans-serif;font-weight:bold;font-size:17px;letter-spacing:1px}
+  .btn:disabled{opacity:.45}
+  .btn.contorno{background:transparent;border:1px solid #3a2f24;color:var(--cinza);font-size:14px;padding:12px}
+  .erro{color:#e88;font-size:14px;margin-top:10px;min-height:18px;text-align:center}
+  .quem-logou{font-size:12px;color:var(--cinza);text-align:center;margin-top:10px}
+  .quem-logou a{color:var(--dourado)}
+  #assin{width:100%;height:150px;border:1px dashed #3a2f24;border-radius:12px;
+    background:#0c0906;touch-action:none}
   .rodape{margin-top:auto;padding-top:30px;color:#5a5248;font-size:12px;
     font-family:Arial,sans-serif;text-align:center;line-height:1.6}
   .oculto{display:none}
@@ -72,16 +75,43 @@
     <div class="detalhe" id="detalhe"></div>
   </div>
 
-  <div class="rodape">Uso único · a baixa é feita pela equipe, no sistema da casa<br>Nexus · Grupo Botequim</div>
+  <!-- ÁREA DA EQUIPE: só aparece quando o voucher está VÁLIDO -->
+  <div class="staff oculto" id="staff">
+    <button class="btn contorno" id="btnSouEquipe">🔐 SOU DA EQUIPE — DAR BAIXA</button>
+
+    <div class="caixa oculto" id="staffLogin">
+      <h3>LOGIN DA EQUIPE</h3>
+      <label>USUÁRIO (E-MAIL)</label><input id="stEmail" type="email" autocomplete="username">
+      <label>SENHA</label><input id="stSenha" type="password" autocomplete="current-password">
+      <button class="btn" id="btnEntrar">ENTRAR</button>
+      <div class="erro" id="loginErro"></div>
+    </div>
+
+    <div class="caixa oculto" id="staffBaixa">
+      <h3>DAR BAIXA</h3>
+      <label>CASA</label><select id="bxCasa"></select>
+      <label>QUEM ESTÁ USANDO (nome)</label><input id="bxNome" placeholder="nome de quem apresentou">
+      <label>TELEFONE (opcional)</label><input id="bxTel" type="tel" placeholder="(11) 9…">
+      <label>ASSINATURA (a pessoa assina com o dedo)</label>
+      <canvas id="assin" width="600" height="220"></canvas>
+      <button class="btn contorno" id="btnLimpaAssin" style="margin-top:8px">limpar assinatura</button>
+      <button class="btn" id="btnBaixar">✔ CONFIRMAR BAIXA</button>
+      <div class="erro" id="baixaErro"></div>
+      <div class="quem-logou">logado: <b id="quemLogou"></b> · <a href="#" id="btnSair">sair</a></div>
+    </div>
+  </div>
+
+  <div class="rodape">Uso único · a baixa é feita pela equipe, com login<br>Nexus · Grupo Botequim</div>
 
 <script>
 const SUPABASE_URL = "https://kuyhkltbwlkvtgbabscv.supabase.co";
 const ANON_KEY     = "sb_publishable_dW-JZ00n74dSLCrznBJ6gw_K8AE1VIq";
+const sb = window.supabase.createClient(SUPABASE_URL, ANON_KEY);
 
 const $ = id => document.getElementById(id);
 const codigo = new URLSearchParams(location.search).get("c")?.trim().toUpperCase() || "";
 
-async function rpc(fn, args){
+async function rpcPub(fn, args){
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
     method:"POST",
     headers:{ "Content-Type":"application/json", "apikey":ANON_KEY,
@@ -107,18 +137,21 @@ function mostrar(info){
                         : (info.descricao || "");
   $("nome").textContent = info.nome && info.nome !== "—" ? info.nome : "";
   $("detalhe").textContent = "";
+  $("staff").classList.add("oculto");
 
   if(info.status === "emitido" || info.status === "confirmado"){
     c.classList.add("valido");
     $("selo").textContent = "✓ VÁLIDO";
-    $("detalhe").textContent = (info.validade
-      ? "Válido até " + new Date(info.validade + "T12:00:00").toLocaleDateString("pt-BR") + " · " : "")
-      + "mostre esta tela à equipe — a baixa é feita no sistema da casa.";
+    $("detalhe").textContent = info.validade
+      ? "Válido até " + new Date(info.validade + "T12:00:00").toLocaleDateString("pt-BR") : "";
+    $("staff").classList.remove("oculto");
   } else if(info.status === "usado"){
     c.classList.add("usado");
     $("selo").textContent = "✗ JÁ USADO";
-    $("detalhe").textContent = "Baixa em " + fmtData(info.usado_em) +
-      (info.casa_uso ? " · " + info.casa_uso : "");
+    $("detalhe").innerHTML = "Baixa em " + fmtData(info.usado_em) +
+      (info.casa_uso ? " · " + info.casa_uso : "") +
+      (info.usado_por_nome ? "<br>usado por <b style='color:var(--branco)'>" +
+        info.usado_por_nome + "</b>" : "");
   } else if(info.status === "expirado"){
     c.classList.add("problema");
     $("selo").textContent = "EXPIRADO";
@@ -140,12 +173,95 @@ async function consultar(){
     return;
   }
   try{
-    const info = await rpc("crm_consultar_cupom", { p_codigo: codigo });
+    const info = await rpcPub("crm_consultar_cupom", { p_codigo: codigo });
     mostrar(info);
   }catch(e){
     $("carregando").textContent = "Sem conexão. Tente de novo.";
   }
 }
+
+// ==================== ÁREA DA EQUIPE ====================
+let assinou = false;
+function preparaAssinatura(){
+  const sc = $("assin"), ctx = sc.getContext("2d");
+  let riscando = false;
+  const limpa = () => { ctx.fillStyle = "#0c0906";
+    ctx.fillRect(0,0,sc.width,sc.height); assinou = false; };
+  limpa();
+  ctx.strokeStyle = "#e8c47a"; ctx.lineWidth = 4; ctx.lineCap = "round";
+  const ponto = e => { const r = sc.getBoundingClientRect();
+    return [(e.clientX-r.left)*sc.width/r.width, (e.clientY-r.top)*sc.height/r.height]; };
+  sc.onpointerdown = e => { riscando = true; sc.setPointerCapture(e.pointerId);
+    const [x,y] = ponto(e); ctx.beginPath(); ctx.moveTo(x,y); e.preventDefault(); };
+  sc.onpointermove = e => { if(!riscando) return;
+    const [x,y] = ponto(e); ctx.lineTo(x,y); ctx.stroke(); assinou = true; };
+  sc.onpointerup = () => riscando = false;
+  $("btnLimpaAssin").onclick = e => { e.preventDefault(); limpa(); };
+}
+
+async function abreBaixa(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){
+    $("staffLogin").classList.remove("oculto");
+    $("staffBaixa").classList.add("oculto");
+    return;
+  }
+  $("staffLogin").classList.add("oculto");
+  $("quemLogou").textContent = data.session.user.email;
+  const { data: casas, error } = await sb.rpc("crm_casas_para_baixa");
+  if(error){ $("baixaErro").textContent = "Erro ao carregar casas."; return; }
+  $("bxCasa").innerHTML = (casas||[]).map(c =>
+    `<option value="${c.id}">${c.nome}</option>`).join("");
+  $("staffBaixa").classList.remove("oculto");
+  preparaAssinatura();
+}
+
+$("btnSouEquipe").onclick = () => { $("btnSouEquipe").classList.add("oculto"); abreBaixa(); };
+
+$("btnEntrar").onclick = async () => {
+  $("loginErro").textContent = "";
+  $("btnEntrar").disabled = true;
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("stEmail").value.trim(), password: $("stSenha").value.trim() });
+  $("btnEntrar").disabled = false;
+  if(error){ $("loginErro").textContent = "Usuário ou senha errados."; return; }
+  abreBaixa();
+};
+
+$("btnSair").onclick = async e => {
+  e.preventDefault(); await sb.auth.signOut();
+  $("staffBaixa").classList.add("oculto");
+  $("staffLogin").classList.remove("oculto");
+};
+
+$("btnBaixar").onclick = async () => {
+  const nomeUso = $("bxNome").value.trim();
+  $("baixaErro").textContent = "";
+  if(!nomeUso){ $("baixaErro").textContent = "Preencha quem está usando."; return; }
+  if(!assinou){ $("baixaErro").textContent = "Falta a assinatura."; return; }
+  const b = $("btnBaixar");
+  b.disabled = true; b.textContent = "DANDO BAIXA…";
+  try{
+    const { data: r, error } = await sb.rpc("crm_baixar_cupom", {
+      p_codigo: codigo, p_casa: $("bxCasa").value, p_usado_nome: nomeUso,
+      p_usado_tel: $("bxTel").value.trim() || null,
+      p_assinatura: $("assin").toDataURL("image/png") });
+    if(error) throw error;
+    if(r.ok === false && r.motivo === "login"){
+      $("baixaErro").textContent = "Sessão caiu — faça login de novo.";
+      b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA"; return;
+    }
+    if(r.ok === false && r.motivo === "casa"){
+      $("baixaErro").textContent = "Você não tem acesso a essa casa.";
+      b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA"; return;
+    }
+    mostrar(r);                       // vira JÁ USADO (ou mostra que outro caixa passou na frente)
+    navigator.vibrate && navigator.vibrate(120);
+  }catch(e){
+    $("baixaErro").textContent = "Falhou: " + (e.message || e);
+    b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA";
+  }
+};
 
 consultar();
 </script>

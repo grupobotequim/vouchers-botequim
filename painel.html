@@ -650,8 +650,8 @@ function telaBaixa(info, codigo){
       "<canvas id='assin' width='600' height='200' style='width:100%;border:1px dashed var(--borda);" +
       "border-radius:12px;background:#0b0806;touch-action:none'></canvas>" +
       "<button class='mini fantasma' id='btnLimpaAssin' style='margin-top:6px'>limpar assinatura</button>" +
+      "<label>CASA</label><select id='bxCasaSel'></select>" +
       "</div>" +
-      "<input id='pin' type='tel' inputmode='numeric' maxlength='6' placeholder='PIN'>" +
       "<button class='botao' id='btnBaixar'>DAR BAIXA</button>" +
       "<div class='dd' id='pinErro'></div>";
   } else if(info.status === "usado"){
@@ -687,24 +687,28 @@ function telaBaixa(info, codigo){
       const [x,y] = ponto(e); sctx.lineTo(x,y); sctx.stroke(); assinou = true; };
     sc.onpointerup = () => riscando = false;
     $("btnLimpaAssin").onclick = limpaAssin;
+    sb.rpc("crm_casas_para_baixa").then(({ data }) => {
+      $("bxCasaSel").innerHTML = (data||[]).map(c =>
+        "<option value='" + c.id + "'>" + c.nome + "</option>").join("");
+    });
 
     b.onclick = async () => {
-      const pin = $("pin").value.trim(), nomeUso = $("bxNome").value.trim();
+      const nomeUso = $("bxNome").value.trim();
       $("pinErro").textContent = "";
       if(!nomeUso){ $("pinErro").textContent = "Preencha quem está usando."; return; }
       if(!assinou){ $("pinErro").textContent = "Falta a assinatura."; return; }
-      if(pin.length < 4){ $("pinErro").textContent = "Digite o PIN da casa."; return; }
+      if(!$("bxCasaSel").value){ $("pinErro").textContent = "Escolha a casa."; return; }
       b.disabled = true; b.textContent = "DANDO BAIXA…";
       try{
-        // sb.rpc = vai com o LOGIN da sessão — celular sem login não dá baixa
+        // sb.rpc = vai com o LOGIN da sessão — sem login o servidor recusa
         const { data: r, error } = await sb.rpc("crm_baixar_cupom", {
-          p_codigo: codigo, p_pin: pin, p_usado_nome: nomeUso,
+          p_codigo: codigo, p_casa: $("bxCasaSel").value, p_usado_nome: nomeUso,
           p_usado_tel: $("bxTel").value.trim() || null,
           p_assinatura: sc.toDataURL("image/png") });
         if(error) throw error;
-        if(r.ok === false && r.motivo === "pin"){ $("pinErro").textContent = "PIN errado.";
-          b.disabled = false; b.textContent = "DAR BAIXA"; return; }
         if(r.ok === false && r.motivo === "login"){ $("pinErro").textContent = "Sessão caiu — faz login de novo.";
+          b.disabled = false; b.textContent = "DAR BAIXA"; return; }
+        if(r.ok === false && r.motivo === "casa"){ $("pinErro").textContent = "Sem acesso a essa casa.";
           b.disabled = false; b.textContent = "DAR BAIXA"; return; }
         telaBaixa(r, codigo); navigator.vibrate && navigator.vibrate(120);
       }catch(e){ $("pinErro").textContent = "Falhou: " + (e.message||e); b.disabled = false; b.textContent = "DAR BAIXA"; }
@@ -788,22 +792,26 @@ async function autotest(){
     }
     const pgN = pagVoucher(img, 500, "Marketing WBP", data[0].codigo, "válido até 26/01/2027", true);
     const tamN = await montaPdf(isca, pgN, data[0].codigo, "x.pdf", null, true);
-    // baixa: sem login (anon) tem que ser 401/403; logado com PIN errado = pin; certo = ok
+    // baixa: sem login (anon) tem que ser bloqueada; casa invalida recusada; certa = ok
     let anonBloqueado = false;
-    try{ await rpcPub("crm_baixar_cupom", { p_codigo:data[0].codigo, p_pin:"6284",
+    try{ await rpcPub("crm_baixar_cupom", { p_codigo:data[0].codigo,
+      p_casa:"00000000-0000-0000-0000-000000000000",
       p_usado_nome:"x", p_usado_tel:null, p_assinatura:null }); }
     catch(e){ anonBloqueado = true; }
     if(!anonBloqueado) throw new Error("baixa anon nao foi bloqueada!");
+    const { data: casas, error: e4b } = await sb.rpc("crm_casas_para_baixa");
+    if(e4b || !casas || !casas.length) throw new Error("casas pra baixa vazio");
     const { data: bErr } = await sb.rpc("crm_baixar_cupom", { p_codigo:data[0].codigo,
-      p_pin:"0000", p_usado_nome:"Cliente Teste", p_usado_tel:null, p_assinatura:null });
-    if(!(bErr.ok === false && bErr.motivo === "pin")) throw new Error("pin errado passou");
+      p_casa:"00000000-0000-0000-0000-000000000000",
+      p_usado_nome:"Cliente Teste", p_usado_tel:null, p_assinatura:null });
+    if(!(bErr.ok === false && bErr.motivo === "casa")) throw new Error("casa invalida passou");
     const { data: bOk, error: e5 } = await sb.rpc("crm_baixar_cupom", { p_codigo:data[0].codigo,
-      p_pin:"6284", p_usado_nome:"Cliente Teste", p_usado_tel:"11999",
+      p_casa:casas[0].id, p_usado_nome:"Cliente Teste", p_usado_tel:"11999",
       p_assinatura:"data:image/png;base64,iVBORw0KGgo=" });
     if(e5 || bOk.ok !== true) throw new Error("baixa logada falhou: " + (e5 && e5.message));
     if(bOk.usado_por_nome !== "Cliente Teste") throw new Error("nao gravou quem usou");
     document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + " n" + tamN +
-      " baixa:" + bOk.status + " por:" + bOk.usado_por_nome;
+      " baixa:" + bOk.status + " por:" + bOk.usado_por_nome + " casas:" + casas.length;
   }catch(err){ document.title = "AUTOTEST-FALHOU: " + err.message; }
 }
 if(location.hash.startsWith("#autotest=")) autotest(); else boot();
