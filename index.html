@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Voucher Botequim</title>
+<meta name="robots" content="noindex">
+<style>
+  :root{
+    --dourado:#d4a853; --branco:#f5f1ea; --cinza:#968e82;
+    --fundo:#100c0a; --verde:#1e7a45; --verde-esc:#0f3d23;
+    --vermelho:#a32626; --vermelho-esc:#4a1010; --laranja:#b5761f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    font-family:Georgia,'Times New Roman',serif;
+    background:var(--fundo); color:var(--branco);
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    padding:24px 20px 40px;
+  }
+  .marca{font-family:Arial,sans-serif;font-weight:bold;font-size:13px;
+    letter-spacing:5px;color:var(--dourado);margin:10px 0 26px;text-align:center}
+  .cartao{
+    width:100%;max-width:420px;border-radius:18px;padding:34px 24px;text-align:center;
+    background:#1a1410;border:1px solid #2c241c;
+  }
+  .cartao.valido{background:var(--verde-esc);border-color:var(--verde)}
+  .cartao.usado{background:var(--vermelho-esc);border-color:var(--vermelho)}
+  .cartao.problema{background:#2b2013;border-color:var(--laranja)}
+  .selo{font-family:Arial,sans-serif;font-weight:bold;font-size:15px;letter-spacing:4px;
+    padding:8px 18px;border-radius:30px;display:inline-block;margin-bottom:22px}
+  .valido .selo{background:var(--verde);color:#fff}
+  .usado .selo{background:var(--vermelho);color:#fff}
+  .problema .selo{background:var(--laranja);color:#fff}
+  .valor{font-size:64px;font-weight:bold;line-height:1.1}
+  .tipo{font-style:italic;color:var(--cinza);font-size:19px;margin-top:6px}
+  .nome{font-size:22px;margin-top:16px}
+  .cod{font-family:Arial,sans-serif;font-weight:bold;letter-spacing:4px;
+    color:var(--cinza);font-size:15px;margin-top:18px}
+  .detalhe{color:var(--cinza);font-size:16px;margin-top:14px;line-height:1.5}
+  .baixa{width:100%;max-width:420px;margin-top:22px;text-align:center}
+  .baixa label{font-family:Arial,sans-serif;font-size:13px;letter-spacing:2px;color:var(--cinza)}
+  #pin{
+    width:200px;display:block;margin:10px auto 14px;padding:14px;text-align:center;
+    font-size:28px;letter-spacing:12px;border-radius:12px;border:1px solid #3a2f24;
+    background:#0c0906;color:var(--branco);font-family:Arial,sans-serif;
+  }
+  #btnBaixa{
+    width:100%;padding:18px;border:none;border-radius:14px;cursor:pointer;
+    background:var(--dourado);color:#140f0a;font-family:Arial,sans-serif;
+    font-weight:bold;font-size:19px;letter-spacing:2px;
+  }
+  #btnBaixa:disabled{opacity:.45}
+  .erro-pin{color:#e88;font-family:Arial,sans-serif;font-size:14px;margin-top:10px;min-height:18px}
+  .rodape{margin-top:auto;padding-top:30px;color:#5a5248;font-size:12px;
+    font-family:Arial,sans-serif;text-align:center;line-height:1.6}
+  .oculto{display:none}
+  .girando{color:var(--cinza);font-style:italic;margin-top:40px}
+</style>
+</head>
+<body>
+  <div class="marca">GRUPO BOTEQUIM</div>
+
+  <div id="carregando" class="girando">Consultando voucher…</div>
+
+  <div id="cartao" class="cartao oculto">
+    <div class="selo" id="selo"></div>
+    <div class="valor" id="valor"></div>
+    <div class="tipo" id="tipo"></div>
+    <div class="nome" id="nome"></div>
+    <div class="cod" id="cod"></div>
+    <div class="detalhe" id="detalhe"></div>
+  </div>
+
+  <div id="areaBaixa" class="baixa oculto">
+    <label>PIN DA CASA</label>
+    <input id="pin" type="tel" inputmode="numeric" maxlength="6" autocomplete="off">
+    <button id="btnBaixa">DAR BAIXA</button>
+    <div class="erro-pin" id="erroPin"></div>
+  </div>
+
+  <div class="rodape">Uso único · a baixa é confirmada pela equipe<br>Nexus · Grupo Botequim</div>
+
+<script>
+const SUPABASE_URL = "https://kuyhkltbwlkvtgbabscv.supabase.co";
+const ANON_KEY     = "sb_publishable_dW-JZ00n74dSLCrznBJ6gw_K8AE1VIq";
+
+const $ = id => document.getElementById(id);
+const codigo = new URLSearchParams(location.search).get("c")?.trim().toUpperCase() || "";
+
+async function rpc(fn, args){
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json", "apikey":ANON_KEY,
+              "Authorization":`Bearer ${ANON_KEY}` },
+    body: JSON.stringify(args)
+  });
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+const fmtValor = v => "R$ " + Number(v).toLocaleString("pt-BR",
+  {minimumFractionDigits:0, maximumFractionDigits:2});
+const fmtData = ts => new Date(ts).toLocaleString("pt-BR",
+  {day:"2-digit", month:"2-digit", hour:"2-digit", minute:"2-digit"});
+
+function mostrar(info){
+  $("carregando").classList.add("oculto");
+  const c = $("cartao");
+  c.classList.remove("oculto","valido","usado","problema");
+  $("cod").textContent = codigo;
+  $("valor").textContent = info.valor ? fmtValor(info.valor) : "";
+  $("tipo").textContent = info.tipo === "credito" ? "de crédito na casa"
+                        : (info.descricao || "");
+  $("nome").textContent = info.nome && info.nome !== "—" ? info.nome : "";
+  $("detalhe").textContent = "";
+  $("areaBaixa").classList.add("oculto");
+
+  if(info.status === "emitido" || info.status === "confirmado"){
+    c.classList.add("valido");
+    $("selo").textContent = "✓ VÁLIDO";
+    $("detalhe").textContent = info.validade
+      ? "Válido até " + new Date(info.validade + "T12:00:00").toLocaleDateString("pt-BR") : "";
+    $("areaBaixa").classList.remove("oculto");
+  } else if(info.status === "usado"){
+    c.classList.add("usado");
+    $("selo").textContent = "✗ JÁ USADO";
+    $("detalhe").textContent = "Baixa em " + fmtData(info.usado_em) +
+      (info.casa_uso ? " · " + info.casa_uso : "");
+  } else if(info.status === "expirado"){
+    c.classList.add("problema");
+    $("selo").textContent = "EXPIRADO";
+    $("detalhe").textContent = "Este voucher venceu.";
+  } else if(info.status === "cancelado"){
+    c.classList.add("problema");
+    $("selo").textContent = "CANCELADO";
+  } else {
+    c.classList.add("problema");
+    $("valor").textContent = "";
+    $("selo").textContent = "NÃO ENCONTRADO";
+    $("detalhe").textContent = "Código não existe. Confira com o gerente.";
+  }
+}
+
+async function consultar(){
+  if(!codigo){
+    $("carregando").textContent = "Link sem código. Escaneie o QR do voucher.";
+    return;
+  }
+  try{
+    const info = await rpc("crm_consultar_cupom", { p_codigo: codigo });
+    mostrar(info);
+  }catch(e){
+    $("carregando").textContent = "Sem conexão. Tente de novo.";
+  }
+}
+
+$("btnBaixa").addEventListener("click", async () => {
+  const pin = $("pin").value.trim();
+  $("erroPin").textContent = "";
+  if(pin.length < 4){ $("erroPin").textContent = "Digite o PIN da casa."; return; }
+  $("btnBaixa").disabled = true;
+  $("btnBaixa").textContent = "DANDO BAIXA…";
+  try{
+    const r = await rpc("crm_baixar_cupom", { p_codigo: codigo, p_pin: pin });
+    if(r.ok){
+      mostrar(r);          // vira a tela de JÁ USADO (baixa recém-feita)
+      navigator.vibrate && navigator.vibrate(120);
+    } else if(r.motivo === "pin"){
+      $("erroPin").textContent = "PIN errado.";
+    } else {
+      mostrar(r);          // outro caixa deu baixa 1s antes -> mostra JÁ USADO
+    }
+  }catch(e){
+    $("erroPin").textContent = "Falhou. Tente de novo.";
+  }
+  $("btnBaixa").disabled = false;
+  $("btnBaixa").textContent = "DAR BAIXA";
+});
+
+consultar();
+</script>
+</body>
+</html>
