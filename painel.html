@@ -304,7 +304,7 @@ function roundRect(ctx,x,y,w,h,r){
 }
 
 // Monta o PDF (2 páginas, QR em PNG por cima — JPEG borra QR)
-async function montaPdf(cvIsca, pg2, codigo, nomeArq, links){
+async function montaPdf(cvIsca, pg2, codigo, nomeArq, links, soRetorna){
   const ESC = 3, { jsPDF } = window.jspdf;
   const W1=2400/ESC, H1=1200/ESC, W2=2400/ESC, H2=pg2.cv.height/ESC;
   const pdf = new jsPDF({ unit:"pt", format:[W1,H1], orientation:"landscape" });
@@ -315,6 +315,7 @@ async function montaPdf(cvIsca, pg2, codigo, nomeArq, links){
     (820+30)/ESC, (pg2.qrY+30)/ESC, 700/ESC, 700/ESC);
   (links||[]).forEach(l => pdf.link(l.box[0]/ESC, l.box[1]/ESC,
     (l.box[2]-l.box[0])/ESC, (l.box[3]-l.box[1])/ESC, { url:l.url }));
+  if(soRetorna) return pdf.output("datauristring").length;
   pdf.save(nomeArq);
 }
 const pausa = ms => new Promise(r => setTimeout(r, ms));
@@ -437,7 +438,29 @@ async function carregarControle(reset){
 $("ctBusca").oninput = () => carregarControle(true);
 $("btnCtMais").onclick = () => { ctPagina++; carregarControle(false); };
 
-boot();
+// autoteste headless: #autotest=email:senha — roda o fluxo real sem baixar arquivo
+async function autotest(){
+  try{
+    const [em, se] = decodeURIComponent(location.hash.slice(10)).split(":");
+    const { error } = await sb.auth.signInWithPassword({ email:em, password:se });
+    if(error) throw new Error("login: " + error.message);
+    const { data, error: e2 } = await sb.rpc("crm_emitir_lote", {
+      p_campanha:"AUTOTESTE painel", p_tipo:"credito",
+      p_itens:[{ nome:"Autoteste", valor:1 }], p_validade_dias:1 });
+    if(e2) throw new Error("rpc: " + e2.message);
+    const img = await fotoEscolhida(null);
+    const isca = pagIsca(img, "BOA NOITE, AUTOTESTE.", "Tem um vale", "com o seu",
+      "nome nele.", "Abra para revelar o valor.", "BOTEQUIM SÃO PAULO");
+    const pgV = pagVoucher(img, 1, "Autoteste", data[0].codigo, "válido por 1 dia");
+    const tamV = await montaPdf(isca, pgV, data[0].codigo, "x.pdf", null, true);
+    const pgP = pagPropaganda(img, "Prato Teste", "R$ 1", "Autoteste", "quinta, 06/08",
+      data[0].codigo, ["A","B","C","D"], true);
+    const tamP = await montaPdf(isca, pgP, data[0].codigo, "x.pdf",
+      [{ box:pgP.BTN, url:"https://wa.me/5511" }, { box:pgP.BTN2, url:"https://wa.me/5511" }], true);
+    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP;
+  }catch(err){ document.title = "AUTOTEST-FALHOU: " + err.message; }
+}
+if(location.hash.startsWith("#autotest=")) autotest(); else boot();
 </script>
 </body>
 </html>
