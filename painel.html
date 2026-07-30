@@ -147,8 +147,10 @@
     <div class="tela" id="t-mensais">
       <div class="cartao">
         <h2>Permuta mensal — <span id="mesTitulo" style="color:var(--dourado)"></span></h2>
-        <div class="dica">Cada parceiro tem seu botão. Quem já tem voucher no mês aparece com ✓
-        — clicar de novo só baixa o mesmo PDF (não emite outro).</div>
+        <div class="dica">Escolha em <b>÷ quantos</b> vouchers dividir o valor do mês e aperte GERAR
+        — a divisão é automática. Validade fixa de <b>6 meses</b>, com aviso no próprio voucher de
+        que dá pra pegar um novo quando vencer. Quem já gerou no mês aparece com ✓ e o botão só
+        baixa os mesmos PDFs (nunca emite dobrado).</div>
         <div id="listaParc">carregando…</div>
         <button class="botao" id="btnMes"></button>
         <div class="msg" id="mesMsg"></div>
@@ -319,7 +321,7 @@ function pagIsca(img, saudacao, l1, l2, l3, sub, rodape){
   texto(ctx, W, 906, rodape, "bold 40px Arial", CORES.cinza, 9);
   return cv;
 }
-function pagVoucher(img, valor, nome, codigo, validadeTxt){
+function pagVoucher(img, valor, nome, codigo, validadeTxt, notaRenova){
   const W=2400, H=3200, cv=document.createElement("canvas");
   cv.width=W; cv.height=H; const ctx=cv.getContext("2d");
   ctx.fillStyle = CORES.fundo; ctx.fillRect(0,0,W,H);
@@ -339,8 +341,14 @@ function pagVoucher(img, valor, nome, codigo, validadeTxt){
   texto(ctx, W, 2053, faixa, "bold 40px Arial", CORES.dourado);
   ctx.fillStyle = CORES.branco; ctx.fillRect((W-760)/2, 2160, 760, 760);
   texto(ctx, W, 3014, codigo, "bold 54px Arial", CORES.branco, 8);
-  texto(ctx, W, 3106, "No caixa: a equipe escaneia o QR e dá baixa na hora.", "38px Arial", CORES.cinza);
-  texto(ctx, W, 3158, "Uso único · sem troco · não vale dinheiro", "32px Arial", "#6e6860");
+  if(notaRenova){
+    texto(ctx, W, 3062, "No caixa: a equipe escaneia o QR e dá baixa na hora.", "38px Arial", CORES.cinza);
+    texto(ctx, W, 3116, "Venceu? É só falar com a gente que emitimos um novo.", "italic 38px Georgia", CORES.dourado);
+    texto(ctx, W, 3164, "Uso único · sem troco · não vale dinheiro", "32px Arial", "#6e6860");
+  } else {
+    texto(ctx, W, 3106, "No caixa: a equipe escaneia o QR e dá baixa na hora.", "38px Arial", CORES.cinza);
+    texto(ctx, W, 3158, "Uso único · sem troco · não vale dinheiro", "32px Arial", "#6e6860");
+  }
   return { cv, qrY: 2160 };
 }
 function pagPropaganda(img, prato, valorTxt, nome, dataTxt, codigo, enderecos, primeiro){
@@ -397,12 +405,14 @@ async function montaPdf(cvIsca, pg2, codigo, nomeArq, links, soRetorna){
 const pausa = ms => new Promise(r => setTimeout(r, ms));
 
 // gera e baixa o PDF de UM vale (usado por emitir, mensais e re-download do banco)
-async function pdfVale(codigo, valor, nome, validadeIso){
+async function pdfVale(codigo, valor, nome, validadeIso, notaRenova){
   const img = await fotoEscolhida(null);
+  const nomeLimpo = (nome||"").replace(/\s*\(\d+\/\d+\)\s*$/, "");   // tira o (1/4) da arte
   const isca = pagIsca(img,
-    nome ? "BOA NOITE, " + nome.toUpperCase() + "." : "VOCÊ RECEBEU UM PRESENTE.",
+    nomeLimpo ? "BOA NOITE, " + nomeLimpo.toUpperCase() + "." : "VOCÊ RECEBEU UM PRESENTE.",
     "Tem um vale", "com o seu", "nome nele.", "Abra para revelar o valor.", "BOTEQUIM SÃO PAULO");
-  const pg2 = pagVoucher(img, Number(valor), nome, codigo, "válido até " + dataBR(validadeIso));
+  const pg2 = pagVoucher(img, Number(valor), nomeLimpo, codigo,
+    "válido até " + dataBR(validadeIso), !!notaRenova);
   await montaPdf(isca, pg2, codigo,
     "Seu-vale-presente-Botequim-R" + Number(valor) + (nome ? "-" + semAcento(nome) : "") + ".pdf");
 }
@@ -426,7 +436,17 @@ $("btnVales").onclick = async () => {
 };
 
 // ==================== MENSAIS ====================
-let PARCEIROS = [];
+// Validade FIXA de 6 meses (decisão do Lucas 30/07); o voucher leva impresso
+// que dá pra pegar um novo quando vencer.
+const DIAS_MENSAL = 180;
+let PARCEIROS = [], FEITOS = {};
+function divideValor(total, n){
+  // divide em n partes de 2 casas que SEMPRE somam o total (última ajusta)
+  const base = Math.floor((total / n) * 100) / 100;
+  const partes = Array.from({length:n}, () => base);
+  partes[n-1] = Math.round((total - base*(n-1)) * 100) / 100;
+  return partes;
+}
 async function carregarParceiros(){
   $("mesTitulo").textContent = mesLabel();
   $("btnMes").textContent = "⚡ GERAR TODOS DE " + mesLabel().toUpperCase();
@@ -436,33 +456,61 @@ async function carregarParceiros(){
       .eq("campanhas.nome", "Permuta mensal " + mesChave())
   ]);
   if(error){ $("listaParc").textContent = "erro: " + error.message; return; }
-  PARCEIROS = parc;
-  const feitos = Object.fromEntries((jaFeitos||[]).map(c => [c.nome, c]));
+  PARCEIROS = parc; FEITOS = {};
+  (jaFeitos||[]).forEach(c => {
+    const base = c.nome.replace(/\s*\(\d+\/\d+\)\s*$/, "");
+    (FEITOS[base] = FEITOS[base] || []).push(c);
+  });
   $("listaParc").innerHTML = parc.map((p,i) => {
-    const f = feitos[p.nome];
+    const f = FEITOS[p.nome];
     return "<div class='parc'><div class='info'><div class='nome'>" + p.nome +
       "</div><div class='valor'>" + fmtRS(p.valor) + "/mês</div>" +
-      (f ? "<div class='feito'>✓ emitido este mês — " + f.codigo + "</div>" : "") +
-      "</div><button class='mini" + (f ? " ok" : "") + "' data-i='" + i + "'>" +
-      (f ? "BAIXAR PDF" : "GERAR") + "</button></div>";
+      (f ? "<div class='feito'>✓ " + f.length + " voucher(s) este mês — " +
+           f.map(x=>x.codigo).join(" · ") + "</div>" : "") +
+      "</div>" +
+      (f ? "" : "<span style='color:var(--cinza);font-size:12px'>÷</span>" +
+        "<input type='number' min='1' max='20' value='1' data-div='" + i + "'" +
+        " style='width:64px;text-align:center;padding:9px'>") +
+      "<button class='mini" + (f ? " ok" : "") + "' data-i='" + i + "'>" +
+      (f ? "BAIXAR PDFs" : "GERAR") + "</button></div>";
   }).join("");
-  $("listaParc").querySelectorAll(".mini").forEach(b => b.onclick = () => gerarMensal([PARCEIROS[b.dataset.i]], b));
+  $("listaParc").querySelectorAll(".mini").forEach(b =>
+    b.onclick = () => gerarMensal(PARCEIROS[b.dataset.i], b));
 }
-async function gerarMensal(lista, botao){
-  if(botao){ botao.disabled = true; } $("btnMes").disabled = true;
+function partesDoParceiro(p){
+  const f = FEITOS[p.nome];
+  if(f) return null;                                   // já emitido: só re-baixar
+  const inp = document.querySelector("input[data-div='" + PARCEIROS.indexOf(p) + "']");
+  const n = Math.max(1, Math.min(20, Number(inp && inp.value) || 1));
+  const partes = divideValor(Number(p.valor), n);
+  return partes.map((v,i) => ({ nome: n > 1 ? p.nome + " (" + (i+1) + "/" + n + ")" : p.nome,
+                                valor: v }));
+}
+async function gerarMensal(p, botao){
+  if(botao) botao.disabled = true; $("btnMes").disabled = true;
+  const lista = Array.isArray(p) ? p : [p];
+  let resultado = [];
   $("mesMsg").textContent = "emitindo…";
-  const { data, error } = await sb.rpc("crm_emitir_lote", {
-    p_campanha: "Permuta mensal " + mesChave(), p_tipo: "credito",
-    p_itens: lista.map(p => ({ nome: p.nome, valor: p.valor })), p_validade_dias: 90 });
-  if(error){ $("mesMsg").textContent = "Erro: " + error.message; $("btnMes").disabled=false; if(botao) botao.disabled=false; return; }
-  for(const c of data){
-    await pdfVale(c.codigo, c.valor, c.nome, validadeDe(90));
+  for(const parc of lista){
+    const f = FEITOS[parc.nome];
+    if(f){ resultado.push(...f.map(x => ({ ...x, ja_existia:true }))); continue; }
+    const itens = partesDoParceiro(parc);
+    const { data, error } = await sb.rpc("crm_emitir_lote", {
+      p_campanha: "Permuta mensal " + mesChave(), p_tipo: "credito",
+      p_itens: itens, p_validade_dias: DIAS_MENSAL });
+    if(error){ $("mesMsg").textContent = "Erro: " + error.message;
+      $("btnMes").disabled = false; if(botao) botao.disabled = false; return; }
+    resultado.push(...data.map(c => ({ ...c, validade: validadeDe(DIAS_MENSAL) })));
+  }
+  $("mesMsg").textContent = "gerando " + resultado.length + " PDF(s)…";
+  for(const c of resultado){
+    await pdfVale(c.codigo, c.valor, c.nome, c.validade, true);   // true = nota "pegue um novo"
     await pausa(500);
   }
-  const novos = data.filter(c => !c.ja_existia).length;
-  $("mesMsg").innerHTML = "<b>" + novos + " novo(s) · " + (data.length-novos) +
+  const novos = resultado.filter(c => !c.ja_existia).length;
+  $("mesMsg").innerHTML = "<b>" + novos + " novo(s) · " + (resultado.length-novos) +
     " já existia(m) (mesmo código, PDF baixado de novo) ✔</b>\n" +
-    data.map(c => c.codigo + " — " + c.nome + " — " + fmtRS(c.valor)).join("\n");
+    resultado.map(c => c.codigo + " — " + c.nome + " — " + fmtRS(c.valor)).join("\n");
   $("btnMes").disabled = false;
   carregarParceiros();
 }
@@ -508,7 +556,7 @@ async function carregarBanco(reset){
   if(reset) ctPagina = 0;
   const busca = $("ctBusca").value.trim();
   let q = sb.from("cupons")
-    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,casas:casa_uso_id(nome_curto)")
+    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,casas:casa_uso_id(nome_curto),campanhas(nome)")
     .order("emitido_em", { ascending:false })
     .range(ctPagina*20, ctPagina*20+19);
   if(ctFiltro) q = q.eq("status", ctFiltro);
@@ -529,7 +577,8 @@ async function carregarBanco(reset){
       "<div class='acoes'>" +
       (c.tipo === "credito" ? "<button class='mini fantasma' onclick=\"rePdf('" + c.codigo + "'," +
         Number(c.valor||0) + ",'" + (c.nome && c.nome!=="—" ? c.nome.replace(/'/g,"") : "") + "','" +
-        c.validade + "')\">⬇ PDF</button>" : "") +
+        c.validade + "'," + (c.campanhas && c.campanhas.nome.startsWith("Permuta mensal")) +
+        ")\">⬇ PDF</button>" : "") +
       "<button class='mini fantasma' onclick=\"verBaixa('" + c.codigo + "')\">✅ dar baixa</button>" +
       "</div></div>";
   }).join("");
@@ -537,7 +586,7 @@ async function carregarBanco(reset){
   if(ctPagina === 0) alvo.innerHTML = html || "<div class='dica'>nada por aqui ainda.</div>";
   else alvo.innerHTML += html;
 }
-window.rePdf = (codigo, valor, nome, validade) => pdfVale(codigo, valor, nome, validade);
+window.rePdf = (codigo, valor, nome, validade, mensal) => pdfVale(codigo, valor, nome, validade, mensal);
 $("ctBusca").oninput = () => carregarBanco(true);
 $("btnCtMais").onclick = () => { ctPagina++; carregarBanco(false); };
 
@@ -654,7 +703,14 @@ async function autotest(){
     if(e4) throw new Error("parceiros-feitos: " + e4.message);
     const cons = await rpcPub("crm_consultar_cupom", { p_codigo: data[0].codigo });
     if(!cons.status) throw new Error("consulta vazia");
-    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + " st:" + cons.status;
+    // divisão automática: partes têm que somar exato
+    for(const [tot,n] of [[2000,3],[2000,4],[500,7],[1000,6]]){
+      const soma = divideValor(tot,n).reduce((a,b)=>Math.round((a+b)*100)/100, 0);
+      if(soma !== tot) throw new Error("divisao " + tot + "/" + n + " somou " + soma);
+    }
+    const pgN = pagVoucher(img, 500, "Marketing WBP", data[0].codigo, "válido até 26/01/2027", true);
+    const tamN = await montaPdf(isca, pgN, data[0].codigo, "x.pdf", null, true);
+    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + " n" + tamN + " st:" + cons.status;
   }catch(err){ document.title = "AUTOTEST-FALHOU: " + err.message; }
 }
 if(location.hash.startsWith("#autotest=")) autotest(); else boot();
