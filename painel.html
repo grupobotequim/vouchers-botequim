@@ -138,6 +138,8 @@
         </div>
         <label>NOME (opcional — vale nominal)</label><input id="vlNome" placeholder="vazio = ao portador">
         <label>VALIDADE (dias)</label><input id="vlDias" type="number" value="90">
+        <label>MOTIVO (obrigatório — fica gravado com teu login)</label>
+        <input id="vlMotivo" placeholder="ex.: brinde cliente VIP, ação de sábado…">
         <button class="botao" id="btnVales">🎟️ GERAR PDF</button>
         <div class="msg" id="vlMsg"></div>
       </div>
@@ -146,12 +148,15 @@
     <!-- ---- MENSAIS ---- -->
     <div class="tela" id="t-mensais">
       <div class="cartao">
-        <h2>Permuta mensal — <span id="mesTitulo" style="color:var(--dourado)"></span></h2>
+        <h2>Permuta mensal</h2>
+        <label>MÊS DA CAMPANHA</label><select id="mesSel"></select>
         <div class="dica">Escolha em <b>÷ quantos</b> vouchers dividir o valor do mês e aperte GERAR
         — a divisão é automática. Validade fixa de <b>6 meses</b>, com aviso no próprio voucher de
         que dá pra pegar um novo quando vencer. Quem já gerou no mês aparece com ✓ e o botão só
         baixa os mesmos PDFs (nunca emite dobrado).</div>
         <div id="listaParc">carregando…</div>
+        <label>MOTIVO (obrigatório — fica gravado com teu login)</label>
+        <input id="mesMotivo" placeholder="ex.: permuta de mídia do mês">
         <button class="botao" id="btnMes"></button>
         <div class="msg" id="mesMsg"></div>
       </div>
@@ -178,6 +183,8 @@ Unidade 4 — endereço aqui</textarea>
         <label style="display:flex;align-items:center;gap:8px;margin-top:14px;font-size:13px;letter-spacing:0">
           <input type="checkbox" id="ppPrimeiro" checked style="width:auto"> 1º contato (botão "não quero receber" visível)
         </label>
+        <label>MOTIVO (obrigatório — fica gravado com teu login)</label>
+        <input id="ppMotivo" placeholder="ex.: campanha do torresmo, quinta 06/08">
         <button class="botao" id="btnProp">📣 GERAR PDF</button>
         <div class="msg" id="ppMsg"></div>
       </div>
@@ -421,13 +428,15 @@ async function pdfVale(codigo, valor, nome, validadeIso, notaRenova){
 $("btnVales").onclick = async () => {
   const valor = Number($("vlValor").value), qtd = Math.min(30, Number($("vlQtd").value)||1);
   const nome = $("vlNome").value.trim(), dias = Number($("vlDias").value)||90;
+  const motivo = $("vlMotivo").value.trim();
   if(!valor){ $("vlMsg").textContent = "Valor inválido."; return; }
+  if(!motivo){ $("vlMsg").textContent = "⚠️ Escreva o motivo antes de gerar."; return; }
   $("btnVales").disabled = true; $("vlMsg").textContent = "emitindo no banco…";
   const itens = Array.from({length:qtd}, (_,i) =>
     ({ nome: nome ? (qtd>1 ? nome+" "+(i+1) : nome) : "", valor }));
   const { data, error } = await sb.rpc("crm_emitir_lote", {
     p_campanha: "Vales avulsos " + mesChave(), p_tipo: "credito",
-    p_itens: itens, p_validade_dias: dias });
+    p_itens: itens, p_validade_dias: dias, p_motivo: motivo });
   if(error){ $("vlMsg").textContent = "Erro: " + error.message; $("btnVales").disabled=false; return; }
   for(const c of data){ await pdfVale(c.codigo, c.valor, c.nome, validadeDe(dias)); await pausa(500); }
   $("vlMsg").innerHTML = "<b>" + data.length + " vale(s) gerado(s) ✔</b>\n" +
@@ -440,6 +449,23 @@ $("btnVales").onclick = async () => {
 // que dá pra pegar um novo quando vencer.
 const DIAS_MENSAL = 180;
 let PARCEIROS = [], FEITOS = {};
+// seletor de mês: passado, atual e 2 futuros (default = atual)
+function montaMeses(){
+  const sel = $("mesSel"); if(sel.options.length) return;
+  const hoje = new Date();
+  for(let d = -1; d <= 2; d++){
+    const dt = new Date(hoje.getFullYear(), hoje.getMonth() + d, 1);
+    const chave = dt.getFullYear() + "-" + String(dt.getMonth()+1).padStart(2,"0");
+    const o = document.createElement("option");
+    o.value = chave; o.textContent = MESES[dt.getMonth()] + "/" + dt.getFullYear();
+    if(d === 0) o.selected = true;
+    sel.appendChild(o);
+  }
+  sel.onchange = carregarParceiros;
+}
+const mesSelChave = () => $("mesSel").value || mesChave();
+const mesSelLabel = () => $("mesSel").selectedOptions[0]
+  ? $("mesSel").selectedOptions[0].textContent : mesLabel();
 function divideValor(total, n){
   // divide em n partes de 2 casas que SEMPRE somam o total (última ajusta)
   const base = Math.floor((total / n) * 100) / 100;
@@ -448,12 +474,12 @@ function divideValor(total, n){
   return partes;
 }
 async function carregarParceiros(){
-  $("mesTitulo").textContent = mesLabel();
-  $("btnMes").textContent = "⚡ GERAR TODOS DE " + mesLabel().toUpperCase();
+  montaMeses();
+  $("btnMes").textContent = "⚡ GERAR TODOS DE " + mesSelLabel().toUpperCase();
   const [{ data: parc, error }, { data: jaFeitos }] = await Promise.all([
     sb.from("crm_parceiros_mensais").select().eq("ativo", true).order("valor", { ascending:false }),
     sb.from("cupons").select("nome, codigo, valor, validade, campanhas!inner(nome)")
-      .eq("campanhas.nome", "Permuta mensal " + mesChave())
+      .eq("campanhas.nome", "Permuta mensal " + mesSelChave())
   ]);
   if(error){ $("listaParc").textContent = "erro: " + error.message; return; }
   PARCEIROS = parc; FEITOS = {};
@@ -487,8 +513,12 @@ function partesDoParceiro(p){
                                 valor: v }));
 }
 async function gerarMensal(p, botao){
-  if(botao) botao.disabled = true; $("btnMes").disabled = true;
   const lista = Array.isArray(p) ? p : [p];
+  const motivo = $("mesMotivo").value.trim();
+  const precisaEmitir = lista.some(parc => !FEITOS[parc.nome]);
+  if(precisaEmitir && !motivo){
+    $("mesMsg").textContent = "⚠️ Escreva o motivo antes de gerar."; return; }
+  if(botao) botao.disabled = true; $("btnMes").disabled = true;
   let resultado = [];
   $("mesMsg").textContent = "emitindo…";
   for(const parc of lista){
@@ -496,8 +526,8 @@ async function gerarMensal(p, botao){
     if(f){ resultado.push(...f.map(x => ({ ...x, ja_existia:true }))); continue; }
     const itens = partesDoParceiro(parc);
     const { data, error } = await sb.rpc("crm_emitir_lote", {
-      p_campanha: "Permuta mensal " + mesChave(), p_tipo: "credito",
-      p_itens: itens, p_validade_dias: DIAS_MENSAL });
+      p_campanha: "Permuta mensal " + mesSelChave(), p_tipo: "credito",
+      p_itens: itens, p_validade_dias: DIAS_MENSAL, p_motivo: motivo });
     if(error){ $("mesMsg").textContent = "Erro: " + error.message;
       $("btnMes").disabled = false; if(botao) botao.disabled = false; return; }
     resultado.push(...data.map(c => ({ ...c, validade: validadeDe(DIAS_MENSAL) })));
@@ -521,11 +551,13 @@ $("btnProp").onclick = async () => {
   const nome = $("ppNome").value.trim(), prato = $("ppPrato").value.trim();
   const valor = Number($("ppValor").value), dataTxt = $("ppData").value.trim();
   const wpp = $("ppWpp").value.replace(/\D/g,"");
+  const motivo = $("ppMotivo").value.trim();
   if(!prato || !dataTxt){ $("ppMsg").textContent = "Preencha prato e data."; return; }
+  if(!motivo){ $("ppMsg").textContent = "⚠️ Escreva o motivo antes de gerar."; return; }
   $("btnProp").disabled = true; $("ppMsg").textContent = "emitindo código…";
   const { data, error } = await sb.rpc("crm_emitir_lote", {
     p_campanha: "Propaganda " + prato + " " + mesChave(), p_tipo: "prato",
-    p_itens: [{ nome, valor }], p_validade_dias: 30 });
+    p_itens: [{ nome, valor }], p_validade_dias: 30, p_motivo: motivo });
   if(error){ $("ppMsg").textContent = "Erro: " + error.message; $("btnProp").disabled=false; return; }
   const c = data[0];
   const img = await fotoEscolhida($("ppFoto"));
@@ -556,7 +588,7 @@ async function carregarBanco(reset){
   if(reset) ctPagina = 0;
   const busca = $("ctBusca").value.trim();
   let q = sb.from("cupons")
-    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,casas:casa_uso_id(nome_curto),campanhas(nome)")
+    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,motivo,emitido_por,usado_por_nome,baixa_por,casas:casa_uso_id(nome_curto),campanhas(nome)")
     .order("emitido_em", { ascending:false })
     .range(ctPagina*20, ctPagina*20+19);
   if(ctFiltro) q = q.eq("status", ctFiltro);
@@ -566,11 +598,14 @@ async function carregarBanco(reset){
   const html = data.map(c => {
     const uso = c.usado_em ? "Baixa " + new Date(c.usado_em).toLocaleString("pt-BR",
       {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
-      (c.casas ? " · " + c.casas.nome_curto : "") : "";
+      (c.casas ? " · " + c.casas.nome_curto : "") +
+      (c.usado_por_nome ? " · usado por <b>" + c.usado_por_nome + "</b>" : "") : "";
     return "<div class='cup'>" +
       "<div class='quem'><span class='cod'>" + c.codigo + "</span>" +
       "<div class='n'>" + (c.nome && c.nome !== "—" ? c.nome : "ao portador") + "</div>" +
       "<div class='d'>emitido " + dataBR(c.emitido_em) + " · vale até " + dataBR(c.validade) +
+      (c.emitido_por ? "<br>por " + c.emitido_por.split("@")[0] +
+        (c.motivo ? " — “" + c.motivo + "”" : "") : "") +
       (uso ? "<br>" + uso : "") + "</div></div>" +
       "<div class='rs'>" + (c.valor ? fmtRS(c.valor) : "") + "</div>" +
       "<span class='st " + c.status + "'>" + c.status.toUpperCase() + "</span>" +
@@ -607,14 +642,25 @@ function telaBaixa(info, codigo){
   let cls, selo, extra = "";
   if(info.status === "emitido" || info.status === "confirmado"){
     cls = "verde"; selo = "✓ VÁLIDO";
-    extra = "<input id='pin' type='tel' inputmode='numeric' maxlength='6' placeholder='PIN'>" +
-            "<button class='botao' id='btnBaixar'>DAR BAIXA</button>" +
-            "<div class='dd' id='pinErro'></div>";
+    extra =
+      "<div style='text-align:left;margin-top:18px'>" +
+      "<label>QUEM ESTÁ USANDO (nome)</label><input id='bxNome' placeholder='nome de quem apresentou'>" +
+      "<label>TELEFONE (opcional)</label><input id='bxTel' type='tel' placeholder='(11) 9…'>" +
+      "<label>ASSINATURA (assina com o dedo)</label>" +
+      "<canvas id='assin' width='600' height='200' style='width:100%;border:1px dashed var(--borda);" +
+      "border-radius:12px;background:#0b0806;touch-action:none'></canvas>" +
+      "<button class='mini fantasma' id='btnLimpaAssin' style='margin-top:6px'>limpar assinatura</button>" +
+      "</div>" +
+      "<input id='pin' type='tel' inputmode='numeric' maxlength='6' placeholder='PIN'>" +
+      "<button class='botao' id='btnBaixar'>DAR BAIXA</button>" +
+      "<div class='dd' id='pinErro'></div>";
   } else if(info.status === "usado"){
     cls = "vermelha"; selo = "✗ JÁ USADO";
     extra = "<div class='dd'>Baixa em " + new Date(info.usado_em).toLocaleString("pt-BR",
       {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
-      (info.casa_uso ? " · " + info.casa_uso : "") + "</div>";
+      (info.casa_uso ? " · " + info.casa_uso : "") +
+      (info.usado_por_nome ? "<br>usado por: <b style='color:var(--branco)'>" + info.usado_por_nome + "</b>" : "") +
+      "</div>";
   } else if(info.status === "nao_encontrado"){
     cls = "neutra"; selo = "NÃO ENCONTRADO";
   } else { cls = "neutra"; selo = info.status.toUpperCase(); }
@@ -625,17 +671,45 @@ function telaBaixa(info, codigo){
     "<div class='dd'>" + codigo + (info.validade ? " · vale até " + dataBR(info.validade) : "") + "</div>" +
     extra + "</div>";
   const b = $("btnBaixar");
-  if(b) b.onclick = async () => {
-    const pin = $("pin").value.trim();
-    if(pin.length < 4){ $("pinErro").textContent = "Digite o PIN da casa."; return; }
-    b.disabled = true; b.textContent = "DANDO BAIXA…";
-    try{
-      const r = await rpcPub("crm_baixar_cupom", { p_codigo: codigo, p_pin: pin });
-      if(r.ok === false && r.motivo === "pin"){ $("pinErro").textContent = "PIN errado.";
-        b.disabled = false; b.textContent = "DAR BAIXA"; return; }
-      telaBaixa(r, codigo); navigator.vibrate && navigator.vibrate(120);
-    }catch(e){ $("pinErro").textContent = "Falhou, tenta de novo."; b.disabled = false; }
-  };
+  if(b){
+    // assinatura com o dedo (pointer events; funciona em touch e mouse)
+    const sc = $("assin"), sctx = sc.getContext("2d");
+    let assinou = false, riscando = false;
+    const limpaAssin = () => { sctx.fillStyle = "#0b0806";
+      sctx.fillRect(0,0,sc.width,sc.height); assinou = false; };
+    limpaAssin();
+    sctx.strokeStyle = "#e8c47a"; sctx.lineWidth = 4; sctx.lineCap = "round";
+    const ponto = e => { const r = sc.getBoundingClientRect();
+      return [(e.clientX-r.left)*sc.width/r.width, (e.clientY-r.top)*sc.height/r.height]; };
+    sc.onpointerdown = e => { riscando = true; sc.setPointerCapture(e.pointerId);
+      const [x,y] = ponto(e); sctx.beginPath(); sctx.moveTo(x,y); };
+    sc.onpointermove = e => { if(!riscando) return;
+      const [x,y] = ponto(e); sctx.lineTo(x,y); sctx.stroke(); assinou = true; };
+    sc.onpointerup = () => riscando = false;
+    $("btnLimpaAssin").onclick = limpaAssin;
+
+    b.onclick = async () => {
+      const pin = $("pin").value.trim(), nomeUso = $("bxNome").value.trim();
+      $("pinErro").textContent = "";
+      if(!nomeUso){ $("pinErro").textContent = "Preencha quem está usando."; return; }
+      if(!assinou){ $("pinErro").textContent = "Falta a assinatura."; return; }
+      if(pin.length < 4){ $("pinErro").textContent = "Digite o PIN da casa."; return; }
+      b.disabled = true; b.textContent = "DANDO BAIXA…";
+      try{
+        // sb.rpc = vai com o LOGIN da sessão — celular sem login não dá baixa
+        const { data: r, error } = await sb.rpc("crm_baixar_cupom", {
+          p_codigo: codigo, p_pin: pin, p_usado_nome: nomeUso,
+          p_usado_tel: $("bxTel").value.trim() || null,
+          p_assinatura: sc.toDataURL("image/png") });
+        if(error) throw error;
+        if(r.ok === false && r.motivo === "pin"){ $("pinErro").textContent = "PIN errado.";
+          b.disabled = false; b.textContent = "DAR BAIXA"; return; }
+        if(r.ok === false && r.motivo === "login"){ $("pinErro").textContent = "Sessão caiu — faz login de novo.";
+          b.disabled = false; b.textContent = "DAR BAIXA"; return; }
+        telaBaixa(r, codigo); navigator.vibrate && navigator.vibrate(120);
+      }catch(e){ $("pinErro").textContent = "Falhou: " + (e.message||e); b.disabled = false; b.textContent = "DAR BAIXA"; }
+    };
+  }
 }
 async function consultarBaixa(){
   const codigo = $("bxCodigo").value.trim().toUpperCase();
@@ -682,9 +756,13 @@ async function autotest(){
     const [em, se] = decodeURIComponent(location.hash.slice(10)).split(":");
     const { error } = await sb.auth.signInWithPassword({ email:em, password:se });
     if(error) throw new Error("login: " + error.message);
+    // sem motivo tem que FALHAR
+    const semMotivo = await sb.rpc("crm_emitir_lote", { p_campanha:"AUTOTESTE painel",
+      p_tipo:"credito", p_itens:[{ nome:"X", valor:1 }], p_validade_dias:1 });
+    if(!semMotivo.error) throw new Error("emitiu sem motivo!");
     const { data, error: e2 } = await sb.rpc("crm_emitir_lote", {
       p_campanha:"AUTOTESTE painel", p_tipo:"credito",
-      p_itens:[{ nome:"Autoteste", valor:1 }], p_validade_dias:1 });
+      p_itens:[{ nome:"Autoteste", valor:1 }], p_validade_dias:1, p_motivo:"autoteste" });
     if(e2) throw new Error("rpc: " + e2.message);
     const img = await fotoEscolhida(null);
     const isca = pagIsca(img, "BOA NOITE, AUTOTESTE.", "Tem um vale", "com o seu",
@@ -710,7 +788,22 @@ async function autotest(){
     }
     const pgN = pagVoucher(img, 500, "Marketing WBP", data[0].codigo, "válido até 26/01/2027", true);
     const tamN = await montaPdf(isca, pgN, data[0].codigo, "x.pdf", null, true);
-    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + " n" + tamN + " st:" + cons.status;
+    // baixa: sem login (anon) tem que ser 401/403; logado com PIN errado = pin; certo = ok
+    let anonBloqueado = false;
+    try{ await rpcPub("crm_baixar_cupom", { p_codigo:data[0].codigo, p_pin:"6284",
+      p_usado_nome:"x", p_usado_tel:null, p_assinatura:null }); }
+    catch(e){ anonBloqueado = true; }
+    if(!anonBloqueado) throw new Error("baixa anon nao foi bloqueada!");
+    const { data: bErr } = await sb.rpc("crm_baixar_cupom", { p_codigo:data[0].codigo,
+      p_pin:"0000", p_usado_nome:"Cliente Teste", p_usado_tel:null, p_assinatura:null });
+    if(!(bErr.ok === false && bErr.motivo === "pin")) throw new Error("pin errado passou");
+    const { data: bOk, error: e5 } = await sb.rpc("crm_baixar_cupom", { p_codigo:data[0].codigo,
+      p_pin:"6284", p_usado_nome:"Cliente Teste", p_usado_tel:"11999",
+      p_assinatura:"data:image/png;base64,iVBORw0KGgo=" });
+    if(e5 || bOk.ok !== true) throw new Error("baixa logada falhou: " + (e5 && e5.message));
+    if(bOk.usado_por_nome !== "Cliente Teste") throw new Error("nao gravou quem usou");
+    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + " n" + tamN +
+      " baixa:" + bOk.status + " por:" + bOk.usado_por_nome;
   }catch(err){ document.title = "AUTOTEST-FALHOU: " + err.message; }
 }
 if(location.hash.startsWith("#autotest=")) autotest(); else boot();

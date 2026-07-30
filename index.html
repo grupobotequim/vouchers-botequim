@@ -72,14 +72,7 @@
     <div class="detalhe" id="detalhe"></div>
   </div>
 
-  <div id="areaBaixa" class="baixa oculto">
-    <label>PIN DA CASA</label>
-    <input id="pin" type="tel" inputmode="numeric" maxlength="6" autocomplete="off">
-    <button id="btnBaixa">DAR BAIXA</button>
-    <div class="erro-pin" id="erroPin"></div>
-  </div>
-
-  <div class="rodape">Uso único · a baixa é confirmada pela equipe<br>Nexus · Grupo Botequim</div>
+  <div class="rodape">Uso único · a baixa é feita pela equipe, no sistema da casa<br>Nexus · Grupo Botequim</div>
 
 <script>
 const SUPABASE_URL = "https://kuyhkltbwlkvtgbabscv.supabase.co";
@@ -114,14 +107,13 @@ function mostrar(info){
                         : (info.descricao || "");
   $("nome").textContent = info.nome && info.nome !== "—" ? info.nome : "";
   $("detalhe").textContent = "";
-  $("areaBaixa").classList.add("oculto");
 
   if(info.status === "emitido" || info.status === "confirmado"){
     c.classList.add("valido");
     $("selo").textContent = "✓ VÁLIDO";
-    $("detalhe").textContent = info.validade
-      ? "Válido até " + new Date(info.validade + "T12:00:00").toLocaleDateString("pt-BR") : "";
-    $("areaBaixa").classList.remove("oculto");
+    $("detalhe").textContent = (info.validade
+      ? "Válido até " + new Date(info.validade + "T12:00:00").toLocaleDateString("pt-BR") + " · " : "")
+      + "mostre esta tela à equipe — a baixa é feita no sistema da casa.";
   } else if(info.status === "usado"){
     c.classList.add("usado");
     $("selo").textContent = "✗ JÁ USADO";
@@ -154,29 +146,6 @@ async function consultar(){
     $("carregando").textContent = "Sem conexão. Tente de novo.";
   }
 }
-
-$("btnBaixa").addEventListener("click", async () => {
-  const pin = $("pin").value.trim();
-  $("erroPin").textContent = "";
-  if(pin.length < 4){ $("erroPin").textContent = "Digite o PIN da casa."; return; }
-  $("btnBaixa").disabled = true;
-  $("btnBaixa").textContent = "DANDO BAIXA…";
-  try{
-    const r = await rpc("crm_baixar_cupom", { p_codigo: codigo, p_pin: pin });
-    if(r.ok){
-      mostrar(r);          // vira a tela de JÁ USADO (baixa recém-feita)
-      navigator.vibrate && navigator.vibrate(120);
-    } else if(r.motivo === "pin"){
-      $("erroPin").textContent = "PIN errado.";
-    } else {
-      mostrar(r);          // outro caixa deu baixa 1s antes -> mostra JÁ USADO
-    }
-  }catch(e){
-    $("erroPin").textContent = "Falhou. Tente de novo.";
-  }
-  $("btnBaixa").disabled = false;
-  $("btnBaixa").textContent = "DAR BAIXA";
-});
 
 consultar();
 </script>
