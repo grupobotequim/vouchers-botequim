@@ -6,7 +6,7 @@
 <title>Botequim — Central de Vouchers & Propaganda</title>
 <meta name="robots" content="noindex">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   :root{ --dourado:#d4a853; --branco:#f5f1ea; --cinza:#968e82; --fundo:#100c0a;
@@ -210,9 +210,17 @@ function jpegDe(cv, w){
   return c2.toDataURL("image/jpeg", 0.82);
 }
 async function qrPng(codigo){
-  return QRCode.toDataURL(VAL_URL + "/?c=" + codigo,
-    { errorCorrectionLevel:"H", margin:2, width:700,
-      color:{ dark:"#000000", light:"#ffffff" } });
+  const q = qrcode(0, "H");                      // correção H, igual ao gerador python
+  q.addData(VAL_URL + "/?c=" + codigo); q.make();
+  const n = q.getModuleCount(), margem = 2, cel = Math.floor(700 /(n + margem*2));
+  const lado = cel * (n + margem*2);
+  const cv = document.createElement("canvas"); cv.width = cv.height = lado;
+  const ctx = cv.getContext("2d");
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, lado, lado);
+  ctx.fillStyle = "#000000";
+  for(let r=0; r<n; r++) for(let c=0; c<n; c++)
+    if(q.isDark(r,c)) ctx.fillRect((c+margem)*cel, (r+margem)*cel, cel, cel);
+  return cv.toDataURL("image/png");
 }
 
 // Página 1 — a isca (2400x1200, zona segura central; valor escondido)
