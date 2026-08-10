@@ -152,12 +152,16 @@
       <div class="cartao">
         <h2>Permuta mensal</h2>
         <label>MÊS DA CAMPANHA</label><select id="mesSel"></select>
-        <div class="dica">Escolha em <b>÷ quantos</b> vouchers dividir o valor do mês e aperte GERAR
-        — a divisão é automática. Sai <b>1 PDF por parceiro</b> com todos os vouchers dele dentro
-        (capa + 1 página por vale). Validade fixa de <b>6 meses</b>, com aviso no próprio voucher de
-        que dá pra pegar um novo quando vencer. Quem já gerou no mês aparece com ✓ e o botão só
-        baixa os mesmos vouchers de novo (nunca emite dobrado).</div>
+        <div class="dica"><b>Marque</b> quem você quer gerar (ou use o GERAR de cada um), escolha em
+        <b>÷ quantos</b> vouchers dividir o valor do mês e aperte o botão. Sai <b>1 PDF por parceiro</b>
+        com todos os vouchers dele dentro (desmarcando o seletor lá embaixo, sai 1 arquivo por vale).
+        Validade fixa de <b>6 meses</b>. Quem já gerou no mês fica <b>🔒 travado</b> — o botão só baixa
+        os mesmos vouchers de novo; emitir dobrado é bloqueado até pelo servidor.</div>
         <div id="listaParc">carregando…</div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;text-transform:none;letter-spacing:0">
+          <input type="checkbox" id="mesJuntar" checked style="width:16px;height:16px;accent-color:var(--dourado)">
+          Juntar em <b>&nbsp;1 PDF por parceiro&nbsp;</b> (desmarque pra baixar 1 arquivo por vale)
+        </label>
         <label>MOTIVO (obrigatório — fica gravado com teu login)</label>
         <input id="mesMotivo" placeholder="ex.: permuta de mídia do mês">
         <button class="botao" id="btnMes"></button>
@@ -543,7 +547,7 @@ function divideValor(total, n){
 }
 async function carregarParceiros(){
   montaMeses();
-  $("btnMes").textContent = "⚡ GERAR TODOS DE " + mesSelLabel().toUpperCase();
+  $("btnMes").textContent = "⚡ GERAR OS MARCADOS DE " + mesSelLabel().toUpperCase();
   const [{ data: parc, error }, { data: jaFeitos }] = await Promise.all([
     sb.from("crm_parceiros_mensais").select().eq("ativo", true).order("valor", { ascending:false }),
     sb.from("cupons").select("nome, codigo, valor, validade, campanhas!inner(nome)")
@@ -557,7 +561,12 @@ async function carregarParceiros(){
   });
   $("listaParc").innerHTML = parc.map((p,i) => {
     const f = FEITOS[p.nome];
-    return "<div class='parc'><div class='info'><div class='nome'>" + p.nome +
+    // já gerou no mês = TRAVADO (✓, sem checkbox, sem GERAR — só baixar de novo os mesmos)
+    return "<div class='parc'>" +
+      (f ? "<span style='font-size:18px' title='já gerado este mês — travado'>🔒</span>"
+         : "<input type='checkbox' class='parcSel' data-sel='" + i + "' checked" +
+           " style='width:18px;height:18px;accent-color:var(--dourado);cursor:pointer'>") +
+      "<div class='info'><div class='nome'>" + p.nome +
       "</div><div class='valor'>" + fmtRS(p.valor) + "/mês</div>" +
       (f ? "<div class='feito'>✓ " + f.length + " voucher(s) este mês — " +
            f.map(x=>x.codigo).join(" · ") + "</div>" : "") +
@@ -600,7 +609,8 @@ async function gerarMensal(p, botao){
       $("btnMes").disabled = false; if(botao) botao.disabled = false; return; }
     resultado.push(...data.map(c => ({ ...c, validade: validadeDe(DIAS_MENSAL) })));
   }
-  // 1 PDF por parceiro com todos os vales dentro (Chrome bloqueia dezenas de downloads)
+  // 1 PDF por parceiro (padrão) OU 1 arquivo por vale, conforme o seletor
+  const juntar = $("mesJuntar").checked;
   const grupos = {};
   for(const c of resultado){
     const base = (c.nome||"").replace(/\s*\(\d+\/\d+\)\s*$/, "") || "Botequim";
@@ -608,24 +618,37 @@ async function gerarMensal(p, botao){
   }
   const idxDe = c => { const m = /\((\d+)\/\d+\)\s*$/.exec(c.nome||""); return m ? +m[1] : 0; };
   const nomes = Object.keys(grupos);
-  let feito = 0;
+  let feito = 0, totalArq = 0;
   for(const base of nomes){
     const g = grupos[base].sort((a,b) => idxDe(a) - idxDe(b));
-    $("mesMsg").textContent = "gerando PDF " + (++feito) + "/" + nomes.length +
+    $("mesMsg").textContent = "gerando " + (++feito) + "/" + nomes.length +
       " — " + base + " (" + g.length + " vale(s))…";
-    if(g.length === 1) await pdfVale(g[0].codigo, g[0].valor, g[0].nome, g[0].validade, true);
-    else await pdfLoteParceiro(base, g);
+    if(juntar && g.length > 1){
+      await pdfLoteParceiro(base, g); totalArq++;
+    } else {
+      for(const c of g){ await pdfVale(c.codigo, c.valor, c.nome, c.validade, true);
+        totalArq++; await pausa(600); }
+    }
     await pausa(800);
   }
   const novos = resultado.filter(c => !c.ja_existia).length;
-  $("mesMsg").innerHTML = "<b>" + nomes.length + " PDF(s) baixado(s) · " + novos +
+  $("mesMsg").innerHTML = "<b>" + totalArq + " PDF(s) baixado(s) · " + novos +
     " vale(s) novo(s) · " + (resultado.length-novos) +
     " já existia(m) (mesmo código, baixado de novo) ✔</b>\n" +
     resultado.map(c => c.codigo + " — " + c.nome + " — " + fmtRS(c.valor)).join("\n");
   $("btnMes").disabled = false;
   carregarParceiros();
 }
-$("btnMes").onclick = () => gerarMensal(PARCEIROS, null);
+$("btnMes").onclick = () => {
+  // gera SÓ os parceiros marcados no checkbox (os travados 🔒 ficam de fora)
+  const marcados = PARCEIROS.filter((p, i) => {
+    const cb = document.querySelector("input.parcSel[data-sel='" + i + "']");
+    return cb && cb.checked && !FEITOS[p.nome];
+  });
+  if(!marcados.length){
+    $("mesMsg").textContent = "Nenhum parceiro marcado — marca o checkbox de quem você quer gerar."; return; }
+  gerarMensal(marcados, null);
+};
 
 // ==================== PROPAGANDA ====================
 $("btnProp").onclick = async () => {
