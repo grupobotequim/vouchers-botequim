@@ -756,67 +756,7 @@ $("btnScan").onclick = async () => {
   }catch(e){ $("bxResultado").innerHTML = "<div class='msg'>câmera bloqueada: " + e.message + "</div>"; }
 };
 
-// autoteste headless: #autotest=email:senha — fluxo real sem baixar arquivo
-async function autotest(){
-  try{
-    const [em, se] = decodeURIComponent(location.hash.slice(10)).split(":");
-    const { error } = await sb.auth.signInWithPassword({ email:em, password:se });
-    if(error) throw new Error("login: " + error.message);
-    // sem motivo tem que FALHAR
-    const semMotivo = await sb.rpc("crm_emitir_lote", { p_campanha:"AUTOTESTE painel",
-      p_tipo:"credito", p_itens:[{ nome:"X", valor:1 }], p_validade_dias:1 });
-    if(!semMotivo.error) throw new Error("emitiu sem motivo!");
-    const { data, error: e2 } = await sb.rpc("crm_emitir_lote", {
-      p_campanha:"AUTOTESTE painel", p_tipo:"credito",
-      p_itens:[{ nome:"Autoteste", valor:1 }], p_validade_dias:1, p_motivo:"autoteste" });
-    if(e2) throw new Error("rpc: " + e2.message);
-    const img = await fotoEscolhida(null);
-    const isca = pagIsca(img, "BOA NOITE, AUTOTESTE.", "Tem um vale", "com o seu",
-      "nome nele.", "Abra para revelar o valor.", "BOTEQUIM SÃO PAULO");
-    const pgV = pagVoucher(img, 1, "Autoteste", data[0].codigo, "válido até 31/07/2026");
-    const tamV = await montaPdf(isca, pgV, data[0].codigo, "x.pdf", null, true);
-    const pgP = pagPropaganda(img, "Prato Teste", "R$ 1", "Autoteste", "quinta, 06/08",
-      data[0].codigo, ["A","B","C","D"], true);
-    const tamP = await montaPdf(isca, pgP, data[0].codigo, "x.pdf",
-      [{ box:pgP.BTN, url:"https://wa.me/5511" }, { box:pgP.BTN2, url:"https://wa.me/5511" }], true);
-    // banco + consulta + parceiros (as 3 leituras das abas novas)
-    const { error: e3 } = await sb.from("cupons").select("codigo, casas:casa_uso_id(nome_curto), campanhas(nome)").limit(3);
-    if(e3) throw new Error("banco: " + e3.message);
-    const { error: e4 } = await sb.from("cupons").select("nome, campanhas!inner(nome)")
-      .eq("campanhas.nome", "Permuta mensal " + mesChave()).limit(3);
-    if(e4) throw new Error("parceiros-feitos: " + e4.message);
-    const cons = await rpcPub("crm_consultar_cupom", { p_codigo: data[0].codigo });
-    if(!cons.status) throw new Error("consulta vazia");
-    // divisão automática: partes têm que somar exato
-    for(const [tot,n] of [[2000,3],[2000,4],[500,7],[1000,6]]){
-      const soma = divideValor(tot,n).reduce((a,b)=>Math.round((a+b)*100)/100, 0);
-      if(soma !== tot) throw new Error("divisao " + tot + "/" + n + " somou " + soma);
-    }
-    const pgN = pagVoucher(img, 500, "Marketing WBP", data[0].codigo, "válido até 26/01/2027", true);
-    const tamN = await montaPdf(isca, pgN, data[0].codigo, "x.pdf", null, true);
-    // baixa: sem login (anon) tem que ser bloqueada; casa invalida recusada; certa = ok
-    let anonBloqueado = false;
-    try{ await rpcPub("crm_baixar_cupom", { p_codigo:data[0].codigo,
-      p_casa:"00000000-0000-0000-0000-000000000000",
-      p_usado_nome:"x", p_usado_tel:null, p_assinatura:null }); }
-    catch(e){ anonBloqueado = true; }
-    if(!anonBloqueado) throw new Error("baixa anon nao foi bloqueada!");
-    const { data: casas, error: e4b } = await sb.rpc("crm_casas_para_baixa");
-    if(e4b || !casas || !casas.length) throw new Error("casas pra baixa vazio");
-    const { data: bErr } = await sb.rpc("crm_baixar_cupom", { p_codigo:data[0].codigo,
-      p_casa:"00000000-0000-0000-0000-000000000000",
-      p_usado_nome:"Cliente Teste", p_usado_tel:null, p_assinatura:null });
-    if(!(bErr.ok === false && bErr.motivo === "casa")) throw new Error("casa invalida passou");
-    const { data: bOk, error: e5 } = await sb.rpc("crm_baixar_cupom", { p_codigo:data[0].codigo,
-      p_casa:casas[0].id, p_usado_nome:"Cliente Teste", p_usado_tel:"11999",
-      p_assinatura:"data:image/png;base64,iVBORw0KGgo=" });
-    if(e5 || bOk.ok !== true) throw new Error("baixa logada falhou: " + (e5 && e5.message));
-    if(bOk.usado_por_nome !== "Cliente Teste") throw new Error("nao gravou quem usou");
-    document.title = "AUTOTEST-OK v" + tamV + " p" + tamP + " n" + tamN +
-      " baixa:" + bOk.status + " por:" + bOk.usado_por_nome + " casas:" + casas.length;
-  }catch(err){ document.title = "AUTOTEST-FALHOU: " + err.message; }
-}
-if(location.hash.startsWith("#autotest=")) autotest(); else boot();
+boot();
 </script>
 </body>
 </html>
