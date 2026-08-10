@@ -103,6 +103,8 @@
   </div>
 
   <div class="rodape">Uso único · a baixa é feita pela equipe, com login<br>Nexus · Grupo Botequim</div>
+  <div class="rodape oculto" id="sessBar">logado: <b id="sessEmail" style="color:#e8c47a"></b> ·
+    <a href="#" id="sessSair" style="color:#e8c47a">sair</a></div>
 
 <script>
 const SUPABASE_URL = "https://kuyhkltbwlkvtgbabscv.supabase.co";
@@ -209,6 +211,7 @@ async function abreBaixa(){
   }
   $("staffLogin").classList.add("oculto");
   $("quemLogou").textContent = data.session.user.email;
+  mostraSessao();
   const { data: casas, error } = await sb.rpc("crm_casas_para_baixa");
   if(error){ $("baixaErro").textContent = "Erro ao carregar casas."; return; }
   $("bxCasa").innerHTML = (casas||[]).map(c =>
@@ -230,10 +233,20 @@ $("btnEntrar").onclick = async () => {
 };
 
 $("btnSair").onclick = async e => {
-  e.preventDefault(); await sb.auth.signOut();
-  $("staffBaixa").classList.add("oculto");
-  $("staffLogin").classList.remove("oculto");
+  e.preventDefault(); await sb.auth.signOut(); location.reload();
 };
+
+// barra de sessão SEMPRE visível quando tem login (dá pra deslogar de qualquer tela)
+async function mostraSessao(){
+  const { data } = await sb.auth.getSession();
+  if(!data.session){ $("sessBar").classList.add("oculto"); return; }
+  $("sessEmail").textContent = data.session.user.email;
+  $("sessBar").classList.remove("oculto");
+}
+$("sessSair").onclick = async e => {
+  e.preventDefault(); await sb.auth.signOut(); location.reload();
+};
+mostraSessao();
 
 // CPF: máscara enquanto digita + validação de dígito verificador
 $("bxCpf").oninput = () => {

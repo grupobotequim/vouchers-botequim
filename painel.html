@@ -126,6 +126,7 @@
       <div class="aba" data-t="banco">🗂️ Emitidos</div>
       <div class="aba" data-t="baixa">✅ Dar baixa</div>
       <a class="aba" href="base.html" style="text-decoration:none">📇 Base de clientes</a>
+      <div class="aba" id="abaSair" title="deslogar">🚪 Sair</div>
     </div>
 
     <!-- ---- EMITIR VALE ---- -->
@@ -271,7 +272,7 @@ async function boot(){
   const { data: soBaixa } = await sb.rpc("crm_conta_de_casa");
   if(soBaixa === true){
     document.querySelectorAll(".aba").forEach(a => {
-      if(a.dataset.t !== "baixa") a.style.display = "none";
+      if(a.dataset.t !== "baixa" && a.id !== "abaSair") a.style.display = "none";
     });
     document.querySelector('.aba[data-t="baixa"]').click();
     return;
@@ -286,13 +287,14 @@ $("btnLogin").onclick = async () => {
   boot();
 };
 document.querySelectorAll(".aba").forEach(a => a.onclick = () => {
-  if (!a.dataset.t) return;   // link pra outra página (Base de clientes)
+  if (!a.dataset.t) return;   // link pra outra página (Base de clientes) ou o Sair
   document.querySelectorAll(".aba").forEach(x => x.classList.remove("ativa"));
   document.querySelectorAll(".tela").forEach(x => x.classList.remove("ativa"));
   a.classList.add("ativa"); $("t-" + a.dataset.t).classList.add("ativa");
   if(a.dataset.t === "banco") carregarBanco(true);
   if(a.dataset.t === "mensais") carregarParceiros();
 });
+$("abaSair").onclick = async () => { await sb.auth.signOut(); location.reload(); };
 
 // ==================== ARTE (mesma receita testada) ====================
 const CORES = { dourado:"#d4a853", branco:"#f5f1ea", cinza:"#968e82", fundo:"#100c0a" };
