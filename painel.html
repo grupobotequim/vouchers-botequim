@@ -152,9 +152,10 @@
         <h2>Permuta mensal</h2>
         <label>MÊS DA CAMPANHA</label><select id="mesSel"></select>
         <div class="dica">Escolha em <b>÷ quantos</b> vouchers dividir o valor do mês e aperte GERAR
-        — a divisão é automática. Validade fixa de <b>6 meses</b>, com aviso no próprio voucher de
+        — a divisão é automática. Sai <b>1 PDF por parceiro</b> com todos os vouchers dele dentro
+        (capa + 1 página por vale). Validade fixa de <b>6 meses</b>, com aviso no próprio voucher de
         que dá pra pegar um novo quando vencer. Quem já gerou no mês aparece com ✓ e o botão só
-        baixa os mesmos PDFs (nunca emite dobrado).</div>
+        baixa os mesmos vouchers de novo (nunca emite dobrado).</div>
         <div id="listaParc">carregando…</div>
         <label>MOTIVO (obrigatório — fica gravado com teu login)</label>
         <input id="mesMotivo" placeholder="ex.: permuta de mídia do mês">
@@ -426,6 +427,28 @@ async function pdfVale(codigo, valor, nome, validadeIso, notaRenova){
     "Seu-vale-presente-Botequim-R" + Number(valor) + (nome ? "-" + semAcento(nome) : "") + ".pdf");
 }
 
+// gera UM PDF com TODOS os vales de um parceiro (capa + 1 página por vale).
+// Nasceu 10/08: o Chrome bloqueia dezenas de downloads seguidos — 1 arquivo por parceiro.
+async function pdfLoteParceiro(parceiro, cupons){
+  const img = await fotoEscolhida(null);
+  const ESC = 3, { jsPDF } = window.jspdf;
+  const isca = pagIsca(img, "OLÁ, " + parceiro.toUpperCase() + ".",
+    "Seus " + cupons.length + " vales", "do mês estão", "neste arquivo.",
+    "Abra para ver os valores.", "BOTEQUIM SÃO PAULO");
+  const pdf = new jsPDF({ unit:"pt", format:[2400/ESC,1200/ESC], orientation:"landscape" });
+  pdf.addImage(jpegDe(isca,1400), "JPEG", 0, 0, 2400/ESC, 1200/ESC);
+  for(const c of cupons){
+    const pg = pagVoucher(img, Number(c.valor),
+      (c.nome||"").replace(/\s*\(\d+\/\d+\)\s*$/, ""), c.codigo,
+      "válido até " + dataBR(c.validade), true);
+    pdf.addPage([2400/ESC, pg.cv.height/ESC], "portrait");
+    pdf.addImage(jpegDe(pg.cv,1400), "JPEG", 0, 0, 2400/ESC, pg.cv.height/ESC);
+    pdf.addImage(await qrPng(c.codigo), "PNG",
+      (820+30)/ESC, (pg.qrY+30)/ESC, 700/ESC, 700/ESC, undefined, "SLOW");
+  }
+  pdf.save("Vouchers-Botequim-" + semAcento(parceiro) + "-" + mesSelChave() + ".pdf");
+}
+
 // ==================== EMITIR VALE ====================
 $("btnVales").onclick = async () => {
   const valor = Number($("vlValor").value), qtd = Math.min(30, Number($("vlQtd").value)||1);
@@ -534,14 +557,27 @@ async function gerarMensal(p, botao){
       $("btnMes").disabled = false; if(botao) botao.disabled = false; return; }
     resultado.push(...data.map(c => ({ ...c, validade: validadeDe(DIAS_MENSAL) })));
   }
-  $("mesMsg").textContent = "gerando " + resultado.length + " PDF(s)…";
+  // 1 PDF por parceiro com todos os vales dentro (Chrome bloqueia dezenas de downloads)
+  const grupos = {};
   for(const c of resultado){
-    await pdfVale(c.codigo, c.valor, c.nome, c.validade, true);   // true = nota "pegue um novo"
-    await pausa(500);
+    const base = (c.nome||"").replace(/\s*\(\d+\/\d+\)\s*$/, "") || "Botequim";
+    (grupos[base] = grupos[base] || []).push(c);
+  }
+  const idxDe = c => { const m = /\((\d+)\/\d+\)\s*$/.exec(c.nome||""); return m ? +m[1] : 0; };
+  const nomes = Object.keys(grupos);
+  let feito = 0;
+  for(const base of nomes){
+    const g = grupos[base].sort((a,b) => idxDe(a) - idxDe(b));
+    $("mesMsg").textContent = "gerando PDF " + (++feito) + "/" + nomes.length +
+      " — " + base + " (" + g.length + " vale(s))…";
+    if(g.length === 1) await pdfVale(g[0].codigo, g[0].valor, g[0].nome, g[0].validade, true);
+    else await pdfLoteParceiro(base, g);
+    await pausa(800);
   }
   const novos = resultado.filter(c => !c.ja_existia).length;
-  $("mesMsg").innerHTML = "<b>" + novos + " novo(s) · " + (resultado.length-novos) +
-    " já existia(m) (mesmo código, PDF baixado de novo) ✔</b>\n" +
+  $("mesMsg").innerHTML = "<b>" + nomes.length + " PDF(s) baixado(s) · " + novos +
+    " vale(s) novo(s) · " + (resultado.length-novos) +
+    " já existia(m) (mesmo código, baixado de novo) ✔</b>\n" +
     resultado.map(c => c.codigo + " — " + c.nome + " — " + fmtRS(c.valor)).join("\n");
   $("btnMes").disabled = false;
   carregarParceiros();
