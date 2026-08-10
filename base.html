@@ -245,9 +245,9 @@ async function abrir() {
   $("app").style.display = "block";
   const { data } = await sb.rpc("crm_nivel");
   NIVEL = data || "parcial";
-  $("faixaNivel").innerHTML = NIVEL === "total"
-    ? `<div class="nivel total">🔓 <div><b>Acesso total.</b> Você vê o número inteiro e pode exportar. Cuidado com quem recebe o arquivo.</div></div>`
-    : `<div class="nivel parcial">🔒 <div><b>Números mascarados.</b> Dá pra filtrar, contar e montar o público — mas o telefone inteiro fica no servidor. Só o Lucas libera acesso total.</div></div>`;
+  // nada de faixa avisando "você está limitado" — quem não é total simplesmente
+  // usa o painel normal; a máscara já é a trava.
+  $("faixaNivel").innerHTML = "";
   $("btnExportar").style.display = NIVEL === "total" ? "block" : "none";
   $("cxAcessos").style.display = NIVEL === "total" ? "block" : "none";
   if (NIVEL === "total") carregarAcessos();
