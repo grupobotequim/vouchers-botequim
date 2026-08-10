@@ -264,6 +264,9 @@ async function boot(){
   const { data } = await sb.auth.getSession();
   if(!data.session) return;
   $("telaLogin").style.display="none"; $("app").style.display="block";
+  // agência só vê o CRM — o servidor já trava (migration 19); aqui só leva pra lá
+  const { data: nivel } = await sb.rpc("crm_nivel");
+  if(nivel === "agencia"){ location.replace("base.html"); return; }
   // conta de casa só dá baixa — o servidor já trava; aqui só esconde o que ela não usa
   const { data: soBaixa } = await sb.rpc("crm_conta_de_casa");
   if(soBaixa === true){
