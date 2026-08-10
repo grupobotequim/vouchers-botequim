@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Botequim — Base de Clientes (CRM)</title>
+<meta name="robots" content="noindex">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --dourado:#d4a853; --dourado2:#e8c47a; --branco:#f5f1ea; --cinza:#9a917f;
+    --fundo:#0d0a08; --carta:#191310; --carta2:#211a14; --borda:#2f261c;
+    --verde:#2e9d5c; --verde-esc:#123422; --vermelho:#c23b3b; --vermelho-esc:#3d1414;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:Arial,sans-serif;color:var(--branco);min-height:100vh;
+    background:radial-gradient(1200px 500px at 50% -100px, #221709 0%, var(--fundo) 60%) fixed var(--fundo)}
+  .topo{text-align:center;padding:34px 12px 6px}
+  .topo h1{font-family:Georgia,serif;font-size:30px;letter-spacing:.5px}
+  .topo h1 span{color:var(--dourado)}
+  .orn{color:var(--dourado);font-size:11px;letter-spacing:6px;margin:8px 0 2px}
+  .sub{color:var(--cinza);font-size:11px;letter-spacing:5px;margin-bottom:22px}
+  .wrap{max-width:760px;margin:0 auto;padding:0 14px 70px}
+  .cartao{background:linear-gradient(180deg,var(--carta2),var(--carta));border:1px solid var(--borda);
+          border-radius:18px;padding:22px;margin-bottom:16px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  h2{font-family:Georgia,serif;font-size:19px;margin-bottom:6px}
+  .dica{color:var(--cinza);font-size:13px;line-height:1.5;margin-bottom:10px}
+  label{display:block;font-size:11px;letter-spacing:2px;color:var(--cinza);margin:14px 0 5px}
+  input,select{width:100%;padding:13px;border-radius:12px;border:1px solid var(--borda);
+    background:#0b0806;color:var(--branco);font-size:16px;outline:none;transition:.15s}
+  input:focus{border-color:var(--dourado)}
+  .botao{width:100%;margin-top:18px;padding:16px;border:none;border-radius:14px;cursor:pointer;
+    background:linear-gradient(180deg,var(--dourado2),var(--dourado));color:#191007;font-weight:bold;
+    font-size:16px;letter-spacing:1px;box-shadow:0 6px 18px rgba(212,168,83,.22)}
+  .botao.secund{background:transparent;border:1px solid var(--borda);color:var(--cinza);font-size:13px;padding:12px;box-shadow:none}
+  .mini{padding:9px 14px;border:none;border-radius:10px;cursor:pointer;font-weight:bold;font-size:12px;
+    background:transparent;border:1px solid var(--borda);color:var(--cinza);white-space:nowrap}
+  .mini:hover{border-color:var(--dourado);color:var(--branco)}
+  .msg{margin-top:12px;font-size:14px;line-height:1.6;color:var(--cinza);white-space:pre-line}
+  .msg b{color:var(--branco)}
+  /* faixa de nivel */
+  .nivel{display:flex;align-items:center;gap:10px;border-radius:14px;padding:13px 16px;margin-bottom:16px;
+         font-size:13px;line-height:1.5;border:1px solid}
+  .nivel.parcial{background:#241d12;border-color:#6d5a2e;color:#e8d3a4}
+  .nivel.total{background:var(--verde-esc);border-color:#1e5c38;color:#9fe0bb}
+  /* contadores */
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+  .num{background:var(--carta);border:1px solid var(--borda);border-radius:14px;padding:14px 8px;text-align:center}
+  .num .v{font-family:Georgia,serif;font-size:24px;font-weight:bold;color:var(--dourado)}
+  .num .l{font-size:10px;letter-spacing:1.5px;color:var(--cinza);margin-top:4px}
+  @media(max-width:560px){.nums{grid-template-columns:repeat(2,1fr)}}
+  /* filtros */
+  .filtros{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+  .chip{padding:8px 14px;border-radius:999px;border:1px solid var(--borda);background:transparent;
+    color:var(--cinza);font-size:12px;font-weight:bold;cursor:pointer}
+  .chip.ativa{background:var(--dourado);color:#191007;border-color:var(--dourado)}
+  /* linhas */
+  .pes{background:#14100c;border:1px solid var(--borda);border-radius:14px;padding:14px 16px;margin-bottom:9px;
+       display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+  .pes .quem{flex:1;min-width:170px}
+  .pes .n{font-size:15px;font-weight:bold}
+  .pes .t{font-family:Consolas,monospace;font-size:14px;color:var(--dourado);margin-top:3px;letter-spacing:1px}
+  .pes .d{font-size:11px;color:var(--cinza);margin-top:5px;line-height:1.5}
+  .selo{font-weight:bold;padding:5px 11px;border-radius:999px;font-size:10px;letter-spacing:1px;white-space:nowrap}
+  .selo.cliente{background:var(--verde-esc);color:#7fd9a4}
+  .selo.frio{background:#26221d;color:var(--cinza)}
+  .rodape{text-align:center;color:#564c40;font-size:11px;padding:20px;letter-spacing:1px}
+  .linha-ac{display:flex;align-items:center;gap:12px;padding:12px 2px;border-bottom:1px solid #241c14;font-size:14px}
+  .linha-ac .e{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}
+  #telaLogin{max-width:400px;margin:40px auto;padding:0 14px}
+</style>
+</head>
+<body>
+  <div class="topo">
+    <h1>Base de <span>Clientes</span></h1>
+    <div class="orn">◆ ◆ ◆</div>
+    <div class="sub">GRUPO BOTEQUIM · CRM NEXUS</div>
+  </div>
+
+  <!-- ============ LOGIN ============ -->
+  <div id="telaLogin">
+    <div class="cartao">
+      <h2>Entrar</h2>
+      <div class="dica">Mesmo login do painel de Reservas e de Vouchers.</div>
+      <label>E-MAIL</label><input id="lgEmail" type="email" autocomplete="username">
+      <label>SENHA</label><input id="lgSenha" type="password" autocomplete="current-password">
+      <button class="botao" id="btnLogin">ENTRAR</button>
+      <div class="msg" id="lgMsg"></div>
+    </div>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div class="wrap" id="app" style="display:none">
+    <div id="faixaNivel"></div>
+
+    <div class="nums">
+      <div class="num"><div class="v" id="nTotal">—</div><div class="l">NA BASE</div></div>
+      <div class="num"><div class="v" id="nCli">—</div><div class="l">JÁ CONSUMIRAM</div></div>
+      <div class="num"><div class="v" id="nNome">—</div><div class="l">COM NOME</div></div>
+      <div class="num"><div class="v" id="nCel">—</div><div class="l">CELULARES</div></div>
+    </div>
+
+    <div class="cartao">
+      <h2>Filtrar</h2>
+      <div class="dica">Escolha o público e depois exporte ou use pro disparo.</div>
+      <input id="busca" placeholder="Buscar por nome…">
+      <label>CASA (CHIP QUE TROUXE)</label>
+      <select id="fCasa">
+        <option value="">Todas as casas</option>
+        <option value="botequimsantoandre">Santo André — Jardim</option>
+        <option value="botequimsaocaetano">São Caetano</option>
+        <option value="botequimsaobernardo">São Bernardo</option>
+        <option value="botequimsaopaulo">São Paulo — Washington Luís</option>
+      </select>
+      <div class="filtros" id="fFontes">
+        <button class="chip ativa" data-f="">Todas as fontes</button>
+        <button class="chip" data-f="whatsapp">WhatsApp</button>
+        <button class="chip" data-f="reserva">Reserva</button>
+        <button class="chip" data-f="voucher">Voucher</button>
+        <button class="chip" data-f="delivery">Delivery</button>
+        <button class="chip" data-f="wifi">Wi-Fi da casa</button>
+      </div>
+      <div class="filtros">
+        <button class="chip" id="soCliente">⭐ Só quem já consumiu</button>
+      </div>
+      <button class="botao secund" id="btnExportar" style="display:none">⬇️ EXPORTAR CSV (números inteiros)</button>
+    </div>
+
+    <div id="lista"></div>
+    <button class="botao secund" id="btnMais" style="display:none">CARREGAR MAIS</button>
+    <div class="msg" id="msg"></div>
+
+    <div class="cartao" id="cxAcessos" style="display:none">
+      <h2>Quem enxerga os números</h2>
+      <div class="dica">Todo mundo entra <b>mascarado</b>. Libere só quem precisa do número inteiro.</div>
+      <div id="acessos"></div>
+    </div>
+
+    <button class="botao secund" id="btnSair">SAIR</button>
+  </div>
+
+  <div class="rodape">NEXUS ORBITAL · a base é ativo do Grupo Botequim</div>
+
+<script>
+const SB_URL = "https://kuyhkltbwlkvtgbabscv.supabase.co";
+const SB_KEY = "sb_publishable_dW-JZ00n74dSLCrznBJ6gw_K8AE1VIq";
+const sb = window.supabase.createClient(SB_URL, SB_KEY);
+
+let NIVEL = "parcial", OFFSET = 0, FONTE = "", SO_CLIENTE = false, CARREGANDO = false;
+const $ = (id) => document.getElementById(id);
+const filtros = () => ({
+  p_busca: $("busca").value.trim() || null,
+  p_casa: $("fCasa").value || null,
+  p_fonte: FONTE || null,
+  p_so_cliente: SO_CLIENTE,
+});
+
+// ---------- login ----------
+$("btnLogin").onclick = async () => {
+  $("lgMsg").textContent = "entrando…";
+  const { error } = await sb.auth.signInWithPassword({
+    email: $("lgEmail").value.trim(), password: $("lgSenha").value,
+  });
+  if (error) { $("lgMsg").textContent = "❌ " + error.message; return; }
+  abrir();
+};
+$("btnSair").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+
+async function abrir() {
+  $("telaLogin").style.display = "none";
+  $("app").style.display = "block";
+  const { data } = await sb.rpc("crm_nivel");
+  NIVEL = data || "parcial";
+  $("faixaNivel").innerHTML = NIVEL === "total"
+    ? `<div class="nivel total">🔓 <div><b>Acesso total.</b> Você vê o número inteiro e pode exportar. Cuidado com quem recebe o arquivo.</div></div>`
+    : `<div class="nivel parcial">🔒 <div><b>Números mascarados.</b> Dá pra filtrar, contar e montar o público — mas o telefone inteiro fica no servidor. Só o Lucas libera acesso total.</div></div>`;
+  $("btnExportar").style.display = NIVEL === "total" ? "block" : "none";
+  $("cxAcessos").style.display = NIVEL === "total" ? "block" : "none";
+  if (NIVEL === "total") carregarAcessos();
+  recarregar();
+}
+
+// ---------- lista ----------
+async function recarregar() { OFFSET = 0; $("lista").innerHTML = ""; contar(); await carregar(); }
+
+async function contar() {
+  const { data, error } = await sb.rpc("crm_base_contar", filtros());
+  if (error || !data || !data[0]) return;
+  const c = data[0];
+  $("nTotal").textContent = c.total.toLocaleString("pt-BR");
+  $("nCli").textContent = c.clientes.toLocaleString("pt-BR");
+  $("nNome").textContent = c.com_nome.toLocaleString("pt-BR");
+  $("nCel").textContent = c.celulares.toLocaleString("pt-BR");
+}
+
+async function carregar() {
+  if (CARREGANDO) return;
+  CARREGANDO = true; $("msg").textContent = "carregando…";
+  const { data, error } = await sb.rpc("crm_base_listar", { ...filtros(), p_limit: 100, p_offset: OFFSET });
+  CARREGANDO = false;
+  if (error) { $("msg").textContent = "❌ " + error.message; return; }
+  $("msg").textContent = "";
+  for (const p of data) $("lista").insertAdjacentHTML("beforeend", cartaoPessoa(p));
+  OFFSET += data.length;
+  $("btnMais").style.display = data.length === 100 ? "block" : "none";
+  if (!OFFSET) $("msg").textContent = "Nenhum contato com esse filtro.";
+}
+
+function cartaoPessoa(p) {
+  const casas = (p.casas || []).map(c => c.replace("botequim", "")).join(" · ");
+  const fontes = (p.fontes || []).join(" · ");
+  const hist = [];
+  if (p.qtd_reservas) hist.push(`${p.qtd_reservas} reserva(s)`);
+  if (p.vouchers_usados) hist.push(`${p.vouchers_usados} voucher(s)`);
+  if (p.pedidos_delivery) hist.push(`${p.pedidos_delivery} delivery`);
+  return `<div class="pes">
+    <div class="quem">
+      <div class="n">${esc(p.nome) || "<span style='color:#6b6156'>sem nome</span>"}</div>
+      <div class="t">${esc(p.telefone)}</div>
+      <div class="d">🏠 ${esc(casas) || "—"} · 📥 ${esc(fontes)}${hist.length ? " · ⭐ " + hist.join(", ") : ""}</div>
+    </div>
+    <span class="selo ${p.ja_consumiu ? "cliente" : "frio"}">${p.ja_consumiu ? "CLIENTE" : "CONTATO"}</span>
+    <button class="mini" onclick="tirar('${p.ref}', this)">tirar da lista</button>
+  </div>`;
+}
+const esc = (s) => (s == null ? "" : String(s).replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c])));
+
+async function tirar(ref, btn) {
+  if (!confirm("Tirar esse contato da base de disparo? (opt-out, não apaga o histórico)")) return;
+  const { error } = await sb.rpc("crm_optout_por_ref", { p_ref: ref, p_motivo: "tirado no painel" });
+  if (error) { alert("❌ " + error.message); return; }
+  btn.closest(".pes").style.opacity = .35; btn.textContent = "fora da lista"; btn.disabled = true;
+  contar();
+}
+
+// ---------- filtros ----------
+let t; $("busca").oninput = () => { clearTimeout(t); t = setTimeout(recarregar, 350); };
+$("fCasa").onchange = recarregar;
+$("fFontes").onclick = (e) => {
+  if (!e.target.dataset || e.target.dataset.f === undefined) return;
+  [...$("fFontes").children].forEach(b => b.classList.remove("ativa"));
+  e.target.classList.add("ativa"); FONTE = e.target.dataset.f; recarregar();
+};
+$("soCliente").onclick = () => {
+  SO_CLIENTE = !SO_CLIENTE; $("soCliente").classList.toggle("ativa", SO_CLIENTE); recarregar();
+};
+$("btnMais").onclick = carregar;
+
+// ---------- exportar ----------
+$("btnExportar").onclick = async () => {
+  $("msg").textContent = "montando o arquivo…";
+  const f = filtros();
+  const { data, error } = await sb.rpc("crm_base_exportar", { p_casa: f.p_casa, p_fonte: f.p_fonte, p_so_cliente: f.p_so_cliente });
+  if (error) { $("msg").textContent = "❌ " + error.message; return; }
+  const linhas = [["telefone", "nome", "casas", "fontes", "reservas", "ja_consumiu"]]
+    .concat(data.map(r => [r.telefone, r.nome || "", r.casas || "", r.fontes || "", r.qtd_reservas, r.ja_consumiu ? "sim" : "nao"]));
+  const csv = "﻿" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  a.download = `base-botequim-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  $("msg").textContent = `✅ ${data.length} contatos exportados.`;
+};
+
+// ---------- acessos ----------
+async function carregarAcessos() {
+  const { data, error } = await sb.rpc("crm_acessos_listar");
+  if (error) { $("acessos").textContent = "❌ " + error.message; return; }
+  $("acessos").innerHTML = data.map(u => `<div class="linha-ac">
+      <div class="e">${esc(u.email)}</div>
+      <span class="selo ${u.nivel === "total" ? "cliente" : "frio"}">${u.nivel === "total" ? "VÊ TUDO" : "MASCARADO"}</span>
+      <button class="mini" onclick="mudarNivel('${u.user_id}','${u.nivel === "total" ? "parcial" : "total"}')">
+        ${u.nivel === "total" ? "mascarar" : "liberar"}</button>
+    </div>`).join("");
+}
+async function mudarNivel(user, nivel) {
+  const { error } = await sb.rpc("crm_acesso_definir", { p_user: user, p_nivel: nivel });
+  if (error) { alert("❌ " + error.message); return; }
+  carregarAcessos();
+}
+
+// ---------- inicio ----------
+sb.auth.getSession().then(({ data }) => { if (data.session) abrir(); });
+</script>
+</body>
+</html>
