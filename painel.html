@@ -812,8 +812,12 @@ function telaBaixa(info, codigo){
   }
 }
 async function consultarBaixa(){
-  const codigo = $("bxCodigo").value.trim().toUpperCase();
+  // aceita o código de qualquer jeito: bq-abc12, BQABC12, "bq abc12"…
+  let codigo = $("bxCodigo").value.toUpperCase().replace(/[^A-Z0-9]/g, "");
   if(!codigo) return;
+  if(codigo.startsWith("BQ")) codigo = codigo.slice(2);
+  codigo = "BQ-" + codigo;
+  $("bxCodigo").value = codigo;
   $("bxResultado").innerHTML = "<div class='msg'>consultando…</div>";
   try{ telaBaixa(await rpcPub("crm_consultar_cupom", { p_codigo: codigo }), codigo); }
   catch(e){ $("bxResultado").innerHTML = "<div class='msg'>sem conexão — tenta de novo.</div>"; }
