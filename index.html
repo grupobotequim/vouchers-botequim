@@ -91,7 +91,8 @@
       <h3>DAR BAIXA</h3>
       <label>CASA</label><select id="bxCasa"></select>
       <label>QUEM ESTÁ USANDO (nome)</label><input id="bxNome" placeholder="nome de quem apresentou">
-      <label>TELEFONE (opcional)</label><input id="bxTel" type="tel" placeholder="(11) 9…">
+      <label>WHATSAPP</label><input id="bxTel" type="tel" placeholder="(11) 9…" inputmode="numeric">
+      <label>CPF</label><input id="bxCpf" type="tel" placeholder="000.000.000-00" inputmode="numeric" maxlength="14">
       <label>ASSINATURA (a pessoa assina com o dedo)</label>
       <canvas id="assin" width="600" height="220"></canvas>
       <button class="btn contorno" id="btnLimpaAssin" style="margin-top:8px">limpar assinatura</button>
@@ -234,17 +235,41 @@ $("btnSair").onclick = async e => {
   $("staffLogin").classList.remove("oculto");
 };
 
+// CPF: máscara enquanto digita + validação de dígito verificador
+$("bxCpf").oninput = () => {
+  const d = $("bxCpf").value.replace(/\D/g,"").slice(0,11);
+  $("bxCpf").value = d.replace(/(\d{3})(\d)/,"$1.$2")
+    .replace(/(\d{3})\.(\d{3})(\d)/,"$1.$2.$3")
+    .replace(/(\d{3})\.(\d{3})\.(\d{3})(\d)/,"$1.$2.$3-$4");
+};
+function cpfValido(v){
+  const c = (v||"").replace(/\D/g,"");
+  if(c.length !== 11 || /^(\d)\1{10}$/.test(c)) return false;
+  for(const t of [9,10]){
+    let s = 0;
+    for(let i=0; i<t; i++) s += +c[i] * (t+1-i);
+    let d = (s*10) % 11; if(d === 10) d = 0;
+    if(d !== +c[t]) return false;
+  }
+  return true;
+}
+
 $("btnBaixar").onclick = async () => {
   const nomeUso = $("bxNome").value.trim();
+  const tel = $("bxTel").value.replace(/\D/g,"");
+  const cpf = $("bxCpf").value.replace(/\D/g,"");
   $("baixaErro").textContent = "";
   if(!nomeUso){ $("baixaErro").textContent = "Preencha quem está usando."; return; }
+  if(tel.length < 10 || tel.length > 13){
+    $("baixaErro").textContent = "Preencha o WhatsApp com DDD."; return; }
+  if(!cpfValido(cpf)){ $("baixaErro").textContent = "CPF inválido — confira os números."; return; }
   if(!assinou){ $("baixaErro").textContent = "Falta a assinatura."; return; }
   const b = $("btnBaixar");
   b.disabled = true; b.textContent = "DANDO BAIXA…";
   try{
     const { data: r, error } = await sb.rpc("crm_baixar_cupom", {
       p_codigo: codigo, p_casa: $("bxCasa").value, p_usado_nome: nomeUso,
-      p_usado_tel: $("bxTel").value.trim() || null,
+      p_usado_tel: tel, p_cpf: cpf,
       p_assinatura: $("assin").toDataURL("image/png") });
     if(error) throw error;
     if(r.ok === false && r.motivo === "login"){
@@ -253,6 +278,10 @@ $("btnBaixar").onclick = async () => {
     }
     if(r.ok === false && r.motivo === "casa"){
       $("baixaErro").textContent = "Você não tem acesso a essa casa.";
+      b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA"; return;
+    }
+    if(r.ok === false && (r.motivo === "whatsapp" || r.motivo === "cpf")){
+      $("baixaErro").textContent = r.motivo === "cpf" ? "CPF inválido." : "WhatsApp inválido.";
       b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA"; return;
     }
     mostrar(r);                       // vira JÁ USADO (ou mostra que outro caixa passou na frente)
