@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Botequim — Não quero mais receber mensagens</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{--dourado:#d4a853;--dourado2:#e8c47a;--branco:#f5f1ea;--cinza:#9a917f;
+        --fundo:#0d0a08;--carta:#191310;--carta2:#211a14;--borda:#2f261c;--verde-esc:#123422}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;color:var(--branco);min-height:100vh;
+    background:radial-gradient(1200px 500px at 50% -100px,#221709 0%,var(--fundo) 60%) fixed var(--fundo)}
+  .topo{text-align:center;padding:40px 12px 6px}
+  .topo h1{font-family:Georgia,serif;font-size:26px}
+  .topo h1 span{color:var(--dourado)}
+  .orn{color:var(--dourado);font-size:11px;letter-spacing:6px;margin:8px 0 20px}
+  .cartao{background:linear-gradient(180deg,var(--carta2),var(--carta));border:1px solid var(--borda);
+    border-radius:18px;padding:26px;max-width:420px;margin:0 auto 16px;box-shadow:0 12px 30px rgba(0,0,0,.35)}
+  h2{font-family:Georgia,serif;font-size:19px;margin-bottom:8px}
+  .dica{color:var(--cinza);font-size:14px;line-height:1.6;margin-bottom:14px}
+  label{display:block;font-size:11px;letter-spacing:2px;color:var(--cinza);margin:14px 0 5px}
+  input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--borda);
+    background:#0b0806;color:var(--branco);font-size:17px;outline:none}
+  input:focus{border-color:var(--dourado)}
+  .botao{width:100%;margin-top:18px;padding:16px;border:none;border-radius:14px;cursor:pointer;
+    background:linear-gradient(180deg,var(--dourado2),var(--dourado));color:#191007;font-weight:bold;font-size:16px}
+  .msg{margin-top:16px;font-size:15px;line-height:1.6;border-radius:12px;padding:14px;display:none}
+  .msg.ok{display:block;background:var(--verde-esc);border:1px solid #1e5c38;color:#9fe0bb}
+  .msg.erro{display:block;background:#3d1414;border:1px solid #c23b3b;color:#e89090}
+  .rodape{text-align:center;color:#564c40;font-size:11px;padding:24px 14px;line-height:1.7}
+</style>
+</head>
+<body>
+  <div class="topo">
+    <h1>Grupo <span>Botequim</span></h1>
+    <div class="orn">◆ ◆ ◆</div>
+  </div>
+
+  <div class="cartao">
+    <h2>Não quero mais receber mensagens</h2>
+    <div class="dica">Digite o número que você usa no WhatsApp com a gente. A gente tira ele da lista
+      de avisos e promoções. Reserva que você já tenha feito continua valendo normalmente.</div>
+    <label>SEU WHATSAPP (COM DDD)</label>
+    <input id="tel" type="tel" inputmode="numeric" placeholder="(11) 99999-9999" autocomplete="tel">
+    <label>QUER CONTAR O MOTIVO? (OPCIONAL)</label>
+    <input id="motivo" placeholder="ex.: recebo mensagem demais">
+    <button class="botao" id="btn">PEDIR PARA SAIR</button>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="rodape">
+    Seus dados são tratados conforme a LGPD.<br>
+    Dúvidas sobre seus dados: contato@grupobotequim.com.br
+  </div>
+
+<script>
+const sb = window.supabase.createClient(
+  "https://kuyhkltbwlkvtgbabscv.supabase.co",
+  "sb_publishable_dW-JZ00n74dSLCrznBJ6gw_K8AE1VIq");
+const $ = (id) => document.getElementById(id);
+
+$("btn").onclick = async () => {
+  const tel = $("tel").value.replace(/\D/g, "");
+  const m = $("msg");
+  if (tel.length < 10) { m.className = "msg erro"; m.textContent = "Confere o número: precisa do DDD."; return; }
+  $("btn").disabled = true; $("btn").textContent = "ENVIANDO…";
+  const { data, error } = await sb.rpc("crm_pedir_saida", { p_telefone: tel, p_motivo: $("motivo").value || null });
+  $("btn").disabled = false; $("btn").textContent = "PEDIR PARA SAIR";
+  if (error) { m.className = "msg erro"; m.textContent = "Não deu certo agora. Tenta de novo daqui a pouco."; return; }
+  if (data === "numero_invalido") { m.className = "msg erro"; m.textContent = "Esse número não parece válido. Confere o DDD."; return; }
+  m.className = "msg ok";
+  m.textContent = data === "ja_registrado"
+    ? "✅ Seu pedido já estava registrado. Pode ficar tranquilo, vamos tirar você da lista."
+    : "✅ Pedido registrado! Você sai da lista de mensagens. Obrigado por avisar.";
+};
+$("tel").addEventListener("keydown", (e) => { if (e.key === "Enter") $("btn").click(); });
+</script>
+</body>
+</html>
