@@ -427,26 +427,32 @@ async function pdfVale(codigo, valor, nome, validadeIso, notaRenova){
     "Seu-vale-presente-Botequim-R" + Number(valor) + (nome ? "-" + semAcento(nome) : "") + ".pdf");
 }
 
-// gera UM PDF com TODOS os vales de um parceiro (capa + 1 página por vale).
-// Nasceu 10/08: o Chrome bloqueia dezenas de downloads seguidos — 1 arquivo por parceiro.
-async function pdfLoteParceiro(parceiro, cupons){
+// gera UM PDF com TODOS os vales de uma pessoa/parceiro (capa + 1 página por vale).
+// Nasceu 10/08: o Chrome bloqueia dezenas de downloads seguidos — 1 arquivo por pessoa.
+async function pdfLoteParceiro(parceiro, cupons, nomeArq, notaRenova = true){
   const img = await fotoEscolhida(null);
   const ESC = 3, { jsPDF } = window.jspdf;
-  const isca = pagIsca(img, "OLÁ, " + parceiro.toUpperCase() + ".",
-    "Seus " + cupons.length + " vales", "do mês estão", "neste arquivo.",
-    "Abra para ver os valores.", "BOTEQUIM SÃO PAULO");
+  const temNome = parceiro && parceiro !== "Botequim";
+  const isca = temNome
+    ? pagIsca(img, "OLÁ, " + parceiro.toUpperCase() + ".",
+        "Seus " + cupons.length + " vales", "com o seu", "nome neles.",
+        "Abra para ver os valores.", "BOTEQUIM SÃO PAULO")
+    : pagIsca(img, "VOCÊ RECEBEU PRESENTES.",
+        "Tem " + cupons.length + " vales", "de presente", "neste arquivo.",
+        "Abra para ver os valores.", "BOTEQUIM SÃO PAULO");
   const pdf = new jsPDF({ unit:"pt", format:[2400/ESC,1200/ESC], orientation:"landscape" });
   pdf.addImage(jpegDe(isca,1400), "JPEG", 0, 0, 2400/ESC, 1200/ESC);
   for(const c of cupons){
     const pg = pagVoucher(img, Number(c.valor),
       (c.nome||"").replace(/\s*\(\d+\/\d+\)\s*$/, ""), c.codigo,
-      "válido até " + dataBR(c.validade), true);
+      "válido até " + dataBR(c.validade), notaRenova);
     pdf.addPage([2400/ESC, pg.cv.height/ESC], "portrait");
     pdf.addImage(jpegDe(pg.cv,1400), "JPEG", 0, 0, 2400/ESC, pg.cv.height/ESC);
     pdf.addImage(await qrPng(c.codigo), "PNG",
       (820+30)/ESC, (pg.qrY+30)/ESC, 700/ESC, 700/ESC, undefined, "SLOW");
   }
-  pdf.save("Vouchers-Botequim-" + semAcento(parceiro) + "-" + mesSelChave() + ".pdf");
+  pdf.save(nomeArq ||
+    "Vouchers-Botequim-" + semAcento(parceiro) + "-" + mesSelChave() + ".pdf");
 }
 
 // ==================== EMITIR VALE ====================
@@ -458,12 +464,21 @@ $("btnVales").onclick = async () => {
   if(!motivo){ $("vlMsg").textContent = "⚠️ Escreva o motivo antes de gerar."; return; }
   $("btnVales").disabled = true; $("vlMsg").textContent = "emitindo no banco…";
   const itens = Array.from({length:qtd}, (_,i) =>
-    ({ nome: nome ? (qtd>1 ? nome+" "+(i+1) : nome) : "", valor }));
+    ({ nome: nome ? (qtd>1 ? nome+" ("+(i+1)+"/"+qtd+")" : nome) : "", valor }));
   const { data, error } = await sb.rpc("crm_emitir_lote", {
     p_campanha: "Vales avulsos " + mesChave(), p_tipo: "credito",
     p_itens: itens, p_validade_dias: dias, p_motivo: motivo });
   if(error){ $("vlMsg").textContent = "Erro: " + error.message; $("btnVales").disabled=false; return; }
-  for(const c of data){ await pdfVale(c.codigo, c.valor, c.nome, validadeDe(dias)); await pausa(500); }
+  // mais de 1 vale pra mesma pessoa = 1 PDF só com todos dentro (10/08)
+  if(data.length > 1){
+    $("vlMsg").textContent = "gerando 1 PDF com " + data.length + " vales…";
+    await pdfLoteParceiro(nome || "Botequim",
+      data.map(c => ({ ...c, validade: validadeDe(dias) })),
+      "Vouchers-Botequim-" + (nome ? semAcento(nome) : "R" + valor + "-x" + data.length) + ".pdf",
+      false);
+  } else {
+    for(const c of data){ await pdfVale(c.codigo, c.valor, c.nome, validadeDe(dias)); await pausa(500); }
+  }
   $("vlMsg").innerHTML = "<b>" + data.length + " vale(s) gerado(s) ✔</b>\n" +
     data.map(c => c.codigo + " — " + fmtRS(c.valor)).join("\n");
   $("btnVales").disabled = false;
