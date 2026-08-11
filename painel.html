@@ -698,7 +698,7 @@ async function carregarBanco(reset){
   if(ctFiltro) q = q.eq("status", ctFiltro);
   if(busca) q = q.or("codigo.ilike.%"+busca+"%,nome.ilike.%"+busca+"%");
   const { data, error } = await q;
-  if(error) return;
+  if(error){ $("ctLista").innerHTML = "<div class='dica'>deu erro ao buscar — tenta de novo (" + error.message + ")</div>"; return; }
   const html = data.map(c => {
     const uso = c.usado_em ? "Baixa " + new Date(c.usado_em).toLocaleString("pt-BR",
       {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
@@ -724,6 +724,10 @@ async function carregarBanco(reset){
   const alvo = $("ctLista");
   if(ctPagina === 0) alvo.innerHTML = html || "<div class='dica'>nada por aqui ainda.</div>";
   else alvo.innerHTML += html;
+  // menos de 20 = última página; some o botão em vez de clicar e não acontecer nada
+  const acabou = data.length < 20;
+  $("btnCtMais").style.display = acabou ? "none" : "";
+  if(acabou && ctPagina > 0) alvo.innerHTML += "<div class='dica'>isso é tudo — não tem mais nada pra carregar.</div>";
 }
 window.rePdf = (codigo, valor, nome, validade, mensal) => pdfVale(codigo, valor, nome, validade, mensal);
 $("ctBusca").oninput = () => carregarBanco(true);
