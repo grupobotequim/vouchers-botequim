@@ -126,6 +126,7 @@
       <div class="aba" data-t="banco">🗂️ Emitidos</div>
       <div class="aba" data-t="baixa">✅ Dar baixa</div>
       <a class="aba" href="base.html" style="text-decoration:none">📇 Base de clientes</a>
+      <a class="aba" id="abaCaixinha" href="https://grupobotequim.github.io/caixinha-botequim/" style="text-decoration:none" title="mesmo login">🧾 Caixinha</a>
       <div class="aba" id="abaSair" title="deslogar">🚪 Sair</div>
     </div>
 
@@ -276,7 +277,8 @@ async function boot(){
   const { data: soBaixa } = await sb.rpc("crm_conta_de_casa");
   if(soBaixa === true){
     document.querySelectorAll(".aba").forEach(a => {
-      if(a.dataset.t !== "baixa" && a.id !== "abaSair") a.style.display = "none";
+      // casa fica com: Dar baixa, a ponte pra Caixinha (mesmo login) e Sair
+      if(a.dataset.t !== "baixa" && a.id !== "abaSair" && a.id !== "abaCaixinha") a.style.display = "none";
     });
     document.querySelector('.aba[data-t="baixa"]').click();
     return;
