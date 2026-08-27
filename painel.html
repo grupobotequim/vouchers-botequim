@@ -700,23 +700,40 @@ $("btnProp").onclick = async () => {
 };
 
 // ==================== BANCO DE EMITIDOS ====================
-let ctPagina = 0, ctFiltro = "";
+let ctPagina = 0, ctFiltro = "", ctItens = [];
+const CT_POR_PAG = 50;
+// "Marketing WBP (4/20)" -> {base:"Marketing WBP", n:4}; sem sufixo, n = 0
+function parteDoNome(nome){
+  const m = /^(.*)\s\((\d+)\/(\d+)\)$/.exec(nome || "");
+  return m ? { base: m[1], n: Number(m[2]) } : { base: nome || "", n: 0 };
+}
+// mesmo lote (mesma emissão) sai em sequência 1,2,3… e não bagunçado
+function ordenaEmitidos(lista){
+  return lista.sort((a,b) => {
+    const t = new Date(b.emitido_em) - new Date(a.emitido_em);
+    if(t) return t;
+    const pa = parteDoNome(a.nome), pb = parteDoNome(b.nome);
+    return pa.base.localeCompare(pb.base, "pt-BR") || pa.n - pb.n
+        || a.codigo.localeCompare(b.codigo);
+  });
+}
 document.querySelectorAll(".chip").forEach(c => c.onclick = () => {
   document.querySelectorAll(".chip").forEach(x => x.classList.remove("ativa"));
   c.classList.add("ativa"); ctFiltro = c.dataset.f; carregarBanco(true);
 });
 async function carregarBanco(reset){
-  if(reset) ctPagina = 0;
+  if(reset){ ctPagina = 0; ctItens = []; }
   const busca = $("ctBusca").value.trim();
   let q = sb.from("cupons")
     .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,motivo,emitido_por,usado_por_nome,baixa_por,casas:casa_uso_id(nome_curto),campanhas(nome)")
-    .order("emitido_em", { ascending:false })
-    .range(ctPagina*20, ctPagina*20+19);
+    .order("emitido_em", { ascending:false }).order("nome", { ascending:true })
+    .range(ctPagina*CT_POR_PAG, ctPagina*CT_POR_PAG + CT_POR_PAG - 1);
   if(ctFiltro) q = q.eq("status", ctFiltro);
   if(busca) q = q.or("codigo.ilike.%"+busca+"%,nome.ilike.%"+busca+"%");
   const { data, error } = await q;
   if(error){ $("ctLista").innerHTML = "<div class='dica'>deu erro ao buscar — tenta de novo (" + error.message + ")</div>"; return; }
-  const html = data.map(c => {
+  ctItens = ordenaEmitidos(ctItens.concat(data));
+  const html = ctItens.map(c => {
     const uso = c.usado_em ? "Baixa " + new Date(c.usado_em).toLocaleString("pt-BR",
       {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
       (c.casas ? " · " + c.casas.nome_curto : "") +
@@ -739,10 +756,10 @@ async function carregarBanco(reset){
       "</div></div>";
   }).join("");
   const alvo = $("ctLista");
-  if(ctPagina === 0) alvo.innerHTML = html || "<div class='dica'>nada por aqui ainda.</div>";
-  else alvo.innerHTML += html;
-  // menos de 20 = última página; some o botão em vez de clicar e não acontecer nada
-  const acabou = data.length < 20;
+  // redesenha a lista inteira já reordenada (senão a página nova entra fora de sequência)
+  alvo.innerHTML = html || "<div class='dica'>nada por aqui ainda.</div>";
+  // menos que a página cheia = última página; some o botão em vez de clicar e não acontecer nada
+  const acabou = data.length < CT_POR_PAG;
   $("btnCtMais").style.display = acabou ? "none" : "";
   if(acabou && ctPagina > 0) alvo.innerHTML += "<div class='dica'>isso é tudo — não tem mais nada pra carregar.</div>";
 }
