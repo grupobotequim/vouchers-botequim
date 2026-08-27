@@ -134,11 +134,13 @@
     <div class="tela ativa" id="t-vales">
       <div class="cartao">
         <h2>Novo vale-presente</h2>
-        <div class="dica">Gera o PDF na hora, já registrado no banco com QR que valida nas casas.</div>
+        <div class="dica">Gera o PDF na hora, já registrado no banco com QR que valida nas casas.
+        O valor é o <b>TOTAL</b> e a quantidade é <b>em quantos vouchers dividir</b> esse total.</div>
         <div class="duas">
-          <div><label>VALOR (R$)</label><input id="vlValor" type="number" value="50"></div>
-          <div><label>QUANTIDADE</label><input id="vlQtd" type="number" value="1" min="1" max="30"></div>
+          <div><label>VALOR TOTAL (R$)</label><input id="vlValor" type="number" value="50"></div>
+          <div><label>÷ EM QUANTOS VOUCHERS</label><input id="vlQtd" type="number" value="1" min="1" max="30"></div>
         </div>
+        <div class="dica" id="vlPrevia"></div>
         <label>NOME (opcional — vale nominal)</label><input id="vlNome" placeholder="vazio = ao portador">
         <label>VALIDADE (dias)</label><input id="vlDias" type="number" value="90">
         <label>MOTIVO (obrigatório — fica gravado com teu login)</label>
@@ -497,8 +499,9 @@ $("btnVales").onclick = async () => {
   if(!valor){ $("vlMsg").textContent = "Valor inválido."; return; }
   if(!motivo){ $("vlMsg").textContent = "⚠️ Escreva o motivo antes de gerar."; return; }
   $("btnVales").disabled = true; $("vlMsg").textContent = "emitindo no banco…";
-  const itens = Array.from({length:qtd}, (_,i) =>
-    ({ nome: nome ? (qtd>1 ? nome+" ("+(i+1)+"/"+qtd+")" : nome) : "", valor }));
+  // valor digitado = TOTAL; qtd = em quantos vouchers dividir (regra do Lucas 27/08)
+  const itens = divideValor(valor, qtd).map((v,i) =>
+    ({ nome: nome ? (qtd>1 ? nome+" ("+(i+1)+"/"+qtd+")" : nome) : "", valor: v }));
   const { data, error } = await sb.rpc("crm_emitir_lote", {
     p_campanha: "Vales avulsos " + mesChave(), p_tipo: "credito",
     p_itens: itens, p_validade_dias: dias, p_motivo: motivo });
@@ -513,10 +516,22 @@ $("btnVales").onclick = async () => {
   } else {
     for(const c of data){ await pdfVale(c.codigo, c.valor, c.nome, validadeDe(dias)); await pausa(500); }
   }
-  $("vlMsg").innerHTML = "<b>" + data.length + " vale(s) gerado(s) ✔</b>\n" +
+  $("vlMsg").innerHTML = "<b>" + data.length + " vale(s) gerado(s) ✔</b> — total " + fmtRS(valor) + "\n" +
     data.map(c => c.codigo + " — " + fmtRS(c.valor)).join("\n");
   $("btnVales").disabled = false;
 };
+// prévia ao vivo: mostra quanto sai em cada voucher antes de gerar
+function previaVales(){
+  const total = Number($("vlValor").value), n = Math.min(30, Number($("vlQtd").value)||1);
+  if(!total || n < 1){ $("vlPrevia").textContent = ""; return; }
+  const partes = divideValor(total, n);
+  $("vlPrevia").innerHTML = n === 1
+    ? "→ <b>1 voucher</b> de " + fmtRS(total)
+    : "→ <b>" + n + " vouchers</b> de " + fmtRS(partes[0]) +
+      (partes[n-1] !== partes[0] ? " (o último de " + fmtRS(partes[n-1]) + ")" : "") +
+      " — soma " + fmtRS(total);
+}
+$("vlValor").oninput = previaVales; $("vlQtd").oninput = previaVales; previaVales();
 
 // ==================== MENSAIS ====================
 // Validade FIXA de 6 meses (decisão do Lucas 30/07); o voucher leva impresso
