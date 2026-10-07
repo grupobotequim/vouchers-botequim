@@ -6,6 +6,7 @@
 <title>Botequim — Base de Clientes (CRM)</title>
 <meta name="robots" content="noindex">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
   :root{
     --dourado:#d4a853; --dourado2:#e8c47a; --branco:#f5f1ea; --cinza:#9a917f;
@@ -167,7 +168,7 @@
             <button class="chip" id="soJanela">⏱️ Janela 24h aberta</button>
             <button class="chip" id="soCliente">⭐ Só quem já consumiu</button>
           </div>
-          <button class="botao secund" id="btnExportar" style="display:none">⬇️ EXPORTAR CSV (números inteiros)</button>
+          <button class="botao secund" id="btnExportar" style="display:none">⬇️ BAIXAR EXCEL (números inteiros)</button>
         </div>
 
         <div id="lista"></div>
@@ -258,7 +259,7 @@ async function abrir() {
   // agência (WBP) só vê a Base: sem "De onde vêm" e sem Vouchers
   $("abaFontes").style.display = NIVEL === "agencia" ? "none" : "";
   $("abaVouchers").style.display = NIVEL === "agencia" ? "none" : "";
-  $("btnExportar").style.display = NIVEL === "total" ? "block" : "none";
+  $("btnExportar").style.display = (NIVEL === "total" || NIVEL === "agencia") ? "block" : "none";
   $("cxAcessos").style.display = NIVEL === "total" ? "block" : "none";
   $("cxSaidas").style.display = NIVEL === "total" ? "block" : "none";
   if (NIVEL === "total") { carregarAcessos(); carregarSaidas(); }
@@ -388,11 +389,20 @@ $("btnExportar").onclick = async () => {
   const cab = ["telefone", "nome", "casas", "chips_com_conversa", "fontes", "ja_conversou", "consumos", "total_gasto", "ultimo_consumo"];
   const linhas = [cab].concat(data.map(r => [r.telefone, r.nome || "", r.casas || "", r.chips_conversa || "",
     r.fontes || "", r.ja_conversou, r.consumos, r.total_gasto ?? "", r.ultimo_consumo ? dt(r.ultimo_consumo) : ""]));
-  const csv = "﻿" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-  a.download = `base-botequim-${new Date().toISOString().slice(0, 10)}.csv`;
-  a.click();
+  const dia = new Date().toISOString().slice(0, 10);
+  if (window.XLSX) {
+    const ws = XLSX.utils.aoa_to_sheet(linhas);
+    ws["!cols"] = [{ wch: 17 }, { wch: 28 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 18 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Base");
+    XLSX.writeFile(wb, `base-botequim-${dia}.xlsx`);
+  } else {
+    const csv = "﻿" + linhas.map(l => l.map(c => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    a.download = `base-botequim-${dia}.csv`;
+    a.click();
+  }
   $("msg").textContent = `✅ ${data.length} contatos exportados.`;
 };
 
