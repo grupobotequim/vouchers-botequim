@@ -115,8 +115,8 @@
   <div id="app" style="display:none">
     <div class="nav">
       <div class="aba ativa" data-t="base">📇 Base</div>
-      <div class="aba" data-t="fontes">📡 De onde vêm</div>
-      <a class="aba" href="painel.html">🎟️ Vouchers</a>
+      <div class="aba" id="abaFontes" data-t="fontes">📡 De onde vêm</div>
+      <a class="aba" id="abaVouchers" href="painel.html">🎟️ Vouchers</a>
     </div>
 
     <div class="wrap">
@@ -255,6 +255,9 @@ async function abrir() {
   // nada de faixa avisando "você está limitado" — quem não é total simplesmente
   // usa o painel normal; a máscara já é a trava.
   $("faixaNivel").innerHTML = "";
+  // agência (WBP) só vê a Base: sem "De onde vêm" e sem Vouchers
+  $("abaFontes").style.display = NIVEL === "agencia" ? "none" : "";
+  $("abaVouchers").style.display = NIVEL === "agencia" ? "none" : "";
   $("btnExportar").style.display = NIVEL === "total" ? "block" : "none";
   $("cxAcessos").style.display = NIVEL === "total" ? "block" : "none";
   $("cxSaidas").style.display = NIVEL === "total" ? "block" : "none";
