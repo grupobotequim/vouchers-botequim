@@ -789,7 +789,8 @@ $("btnCtMais").onclick = () => { ctPagina++; carregarBanco(false); };
 
 // ==================== DAR BAIXA ====================
 // ==================== DE QUEM É O VALE (caso BQ-AFK7Z, 20/10) ====================
-// Vale da Revista Expressão foi baixado como se fosse da Ideal Signs. Agora a tela mostra
+// Baixa saiu com o nome de outra pessoa (o navegador autopreenchia nome/WhatsApp/CPF da baixa anterior;
+// campos agora com autocomplete off). A tela mostra
 // GRANDE de quem é o vale, avisa se o nome digitado é de OUTRO parceiro e pede 2º toque.
 const VALE_PARC_PADRAO = ["Marketing WBP","Painel OUTV","Painel Felipe Faggi","Painel Ideal Signs","Revista Expressão"];
 let VALE_PARCEIROS = VALE_PARC_PADRAO.slice();
@@ -856,14 +857,14 @@ function telaBaixa(info, codigo){
       "<label>QUEM ESTÁ USANDO (nome — e de qual empresa, se for parceiro)</label><input id='bxNome' placeholder='nome de quem apresentou' list='bxParcList' autocomplete='off'>" +
       "<datalist id='bxParcList'></datalist>" +
       "<div class='alerta-parc' id='bxAlerta' style='display:none'></div>" +
-      "<label>WHATSAPP</label><input id='bxTel' type='tel' placeholder='(11) 9…' inputmode='numeric'>" +
-      "<label>CPF</label><input id='bxCpf' type='tel' placeholder='000.000.000-00' inputmode='numeric' maxlength='14'>" +
+      "<label>WHATSAPP</label><input id='bxTel' name='bx-tel-nao-preencher' type='tel' placeholder='(11) 9…' inputmode='numeric' autocomplete='off'>" +
+      "<label>CPF</label><input id='bxCpf' name='bx-cpf-nao-preencher' type='tel' placeholder='000.000.000-00' inputmode='numeric' maxlength='14' autocomplete='off'>" +
       "<label>ASSINATURA (assina com o dedo)</label>" +
       "<canvas id='assin' width='600' height='200' style='width:100%;border:1px dashed var(--borda);" +
       "border-radius:12px;background:#0b0806;touch-action:none'></canvas>" +
       "<button class='mini fantasma' id='btnLimpaAssin' style='margin-top:6px'>limpar assinatura</button>" +
       "<label>CASA</label><select id='bxCasaSel'></select>" +
-      "<label>Nº DA COMANDA</label><input id='bxComanda' type='text' inputmode='text' maxlength='20' required style='text-transform:uppercase'>" +
+      "<label>Nº DA COMANDA</label><input id='bxComanda' type='text' inputmode='text' maxlength='20' required autocomplete='off' style='text-transform:uppercase'>" +
       "</div>" +
       "<button class='botao' id='btnBaixar'>DAR BAIXA</button>" +
       "<div class='dica-confirma' id='bxDicaConf' style='display:none'></div>" +
