@@ -175,8 +175,9 @@ function valeOutroParceiro(digitado, vale){
 }
 async function valeCarregaParceiros(){
   try{
-    const { data } = await sb.from("crm_parceiros_mensais").select("nome");
-    if(data && data.length) VALE_PARCEIROS = [...new Set(VALE_PARC_PADRAO.concat(data.map(r => r.nome)))];
+    // so os nomes, pela RPC: conta de casa nao le a tabela de parceiros (migration 26)
+    const { data } = await sb.rpc("crm_parceiros_nomes");
+    if(data && data.length) VALE_PARCEIROS = [...new Set(VALE_PARC_PADRAO.concat(data.map(r => typeof r === "string" ? r : r.crm_parceiros_nomes)))];
   }catch(e){}
 }
 function valeBlocoDono(info, vale){
