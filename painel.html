@@ -94,6 +94,18 @@
   .valida .dd{color:var(--cinza);font-size:14px;margin-top:10px;line-height:1.5}
   #pin{width:210px;margin:16px auto 0;display:block;text-align:center;font-size:26px;letter-spacing:10px}
   #video{width:100%;border-radius:14px;margin-top:12px;display:none}
+  /* de quem é o vale (caso BQ-AFK7Z 20/10) */
+  .dono-vale{margin:18px 0 6px;padding:16px 12px;border-radius:14px;background:#0b0806;border:2px solid var(--dourado);text-align:center}
+  .dono-t{font-family:Arial,sans-serif;font-size:12px;font-weight:bold;letter-spacing:3px;color:var(--dourado)}
+  .dono-n{font-family:Arial,sans-serif;font-weight:bold;font-size:30px;line-height:1.15;margin-top:6px;color:#fff;word-break:break-word}
+  .dono-g{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px}
+  .dono-g span{font-family:Arial,sans-serif;font-size:13px;font-weight:bold;padding:5px 10px;border-radius:999px;background:#241d12;color:var(--branco)}
+  .dono-g .sit-ok{background:var(--verde);color:#fff}
+  .dono-g .sit-usado{background:var(--vermelho);color:#fff}
+  .alerta-parc{margin-top:10px;padding:12px;border-radius:11px;background:#4a3d05;border:2px solid #f2c94c;color:#ffe48a;
+    font-family:Arial,sans-serif;font-size:15px;font-weight:bold;line-height:1.4;text-align:center}
+  .confirma-armado{background:#f2c94c !important;color:#1a1300 !important;border:2px solid #fff3b0 !important}
+  .dica-confirma{color:#ffe48a;font-size:13px;margin-top:8px;text-align:center;font-family:Arial,sans-serif}
   #telaLogin{max-width:400px;margin:40px auto;padding:0 14px}
   .rodape{text-align:center;color:#564c40;font-size:11px;padding:20px;letter-spacing:1px}
 </style>
@@ -725,7 +737,7 @@ async function carregarBanco(reset){
   if(reset){ ctPagina = 0; ctItens = []; }
   const busca = $("ctBusca").value.trim();
   let q = sb.from("cupons")
-    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,motivo,emitido_por,usado_por_nome,baixa_por,casas:casa_uso_id(nome_curto),campanhas(nome)")
+    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,motivo,emitido_por,usado_por_nome,baixa_por,observacao,casas:casa_uso_id(nome_curto),campanhas(nome)")
     .order("emitido_em", { ascending:false }).order("nome", { ascending:true })
     .range(ctPagina*CT_POR_PAG, ctPagina*CT_POR_PAG + CT_POR_PAG - 1);
   if(ctFiltro) q = q.eq("status", ctFiltro);
@@ -737,14 +749,18 @@ async function carregarBanco(reset){
     const uso = c.usado_em ? "Baixa " + new Date(c.usado_em).toLocaleString("pt-BR",
       {day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"}) +
       (c.casas ? " · " + c.casas.nome_curto : "") +
-      (c.usado_por_nome ? " · usado por <b>" + c.usado_por_nome + "</b>" : "") : "";
+      (c.usado_por_nome ? " · usado por <b>" + valeEsc(c.usado_por_nome) + "</b>" : "") +
+      (c.baixa_por ? " · baixa feita por " + valeEsc(String(c.baixa_por).split("@")[0]) : "") : "";
+    // notas de conferência (tudo que não é o "baixa: <casa>" automático)
+    const notas = String(c.observacao || "").split(" | ").filter(x => x && !/^baixa: /.test(x));
     return "<div class='cup'>" +
       "<div class='quem'><span class='cod'>" + c.codigo + "</span>" +
       "<div class='n'>" + (c.nome && c.nome !== "—" ? c.nome : "ao portador") + "</div>" +
       "<div class='d'>emitido " + dataBR(c.emitido_em) + " · vale até " + dataBR(c.validade) +
       (c.emitido_por ? "<br>por " + c.emitido_por.split("@")[0] +
         (c.motivo ? " — “" + c.motivo + "”" : "") : "") +
-      (uso ? "<br>" + uso : "") + "</div></div>" +
+      (uso ? "<br>" + uso : "") +
+      (notas.length ? "<br><span style='color:#ffe48a'>📝 " + valeEsc(notas.join(" · ")) + "</span>" : "") + "</div></div>" +
       "<div class='rs'>" + (c.valor ? fmtRS(c.valor) : "") + "</div>" +
       "<span class='st " + c.status + "'>" + c.status.toUpperCase() + "</span>" +
       "<div class='acoes'>" +
@@ -768,6 +784,53 @@ $("ctBusca").oninput = () => carregarBanco(true);
 $("btnCtMais").onclick = () => { ctPagina++; carregarBanco(false); };
 
 // ==================== DAR BAIXA ====================
+// ==================== DE QUEM É O VALE (caso BQ-AFK7Z, 20/10) ====================
+// Vale da Revista Expressão foi baixado como se fosse da Ideal Signs. Agora a tela mostra
+// GRANDE de quem é o vale, avisa se o nome digitado é de OUTRO parceiro e pede 2º toque.
+const VALE_PARC_PADRAO = ["Marketing WBP","Painel OUTV","Painel Felipe Faggi","Painel Ideal Signs","Revista Expressão"];
+let VALE_PARCEIROS = VALE_PARC_PADRAO.slice();
+const VALE_GENERICAS = new Set(["painel","marketing","revista","de","da","do","das","dos"]);
+const valeNormal = s => String(s||"").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"");
+const valePalavras = s => valeNormal(s).split(/[^a-z0-9]+/).filter(p => p.length >= 3 && !VALE_GENERICAS.has(p));
+const valeEsc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
+// "Revista Expressão (19/20)" -> { base:"Revista Expressão", i:19, n:20, parceiro:"Revista Expressão" }
+function dadosDoVale(nome){
+  const s = (nome && nome !== "—") ? String(nome).trim() : "";
+  const m = s.match(/^(.*?)\s*\((\d+)\/(\d+)\)\s*$/);
+  const base = m ? m[1].trim() : s;
+  const pv = valePalavras(base);
+  const parceiro = VALE_PARCEIROS.find(p => valePalavras(p).some(x => pv.includes(x))) || null;
+  const rotulo = base ? base.toUpperCase() : "AO PORTADOR";
+  const w = valeNormal(base.split(/\s+/)[0] || "");
+  const art = !base ? "" : w.endsWith("a") ? "DA " : w.endsWith("o") ? "DO " : "DE ";
+  return { base, i: m ? +m[2] : 0, n: m ? +m[3] : 0, parceiro, rotulo, art };
+}
+// nome digitado tem palavra de OUTRO parceiro conhecido (que não está no nome do vale)?
+function valeOutroParceiro(digitado, vale){
+  const pd = valePalavras(digitado), pv = valePalavras(vale.base);
+  return VALE_PARCEIROS.find(p => p !== vale.parceiro &&
+    valePalavras(p).some(x => pd.includes(x) && !pv.includes(x))) || null;
+}
+async function valeCarregaParceiros(){
+  try{
+    const { data } = await sb.from("crm_parceiros_mensais").select("nome");
+    if(data && data.length) VALE_PARCEIROS = [...new Set(VALE_PARC_PADRAO.concat(data.map(r => r.nome)))];
+  }catch(e){}
+}
+function valeBlocoDono(info, vale){
+  const usado = info.status === "usado";
+  const sit = usado ? "✗ JÁ USADO" : (info.status === "emitido" || info.status === "confirmado") ? "✓ NÃO USADO" : String(info.status||"").toUpperCase();
+  return "<div class='dono-vale'>" +
+    "<div class='dono-t'>ESTE VALE É " + (vale.base ? vale.art.trim() : "") + "</div>" +
+    "<div class='dono-n'>" + valeEsc(vale.rotulo) + "</div>" +
+    "<div class='dono-g'>" +
+      (info.valor ? "<span>" + valeEsc(fmtValeRS(info.valor)) + "</span>" : "") +
+      (info.validade ? "<span>vale até " + valeEsc(new Date(info.validade + "T12:00:00").toLocaleDateString("pt-BR")) + "</span>" : "") +
+      (vale.n ? "<span>nº " + vale.i + "/" + vale.n + " do lote</span>" : "") +
+      "<span class='" + (usado ? "sit-usado" : "sit-ok") + "'>" + sit + "</span>" +
+    "</div></div>";
+}
+const fmtValeRS = v => "R$ " + Number(v).toLocaleString("pt-BR", {minimumFractionDigits:0, maximumFractionDigits:2});
 window.verBaixa = codigo => {
   document.querySelector('.aba[data-t="baixa"]').click();
   $("bxCodigo").value = codigo; consultarBaixa();
@@ -786,7 +849,9 @@ function telaBaixa(info, codigo){
     cls = "verde"; selo = "✓ VÁLIDO";
     extra =
       "<div style='text-align:left;margin-top:18px'>" +
-      "<label>QUEM ESTÁ USANDO (nome)</label><input id='bxNome' placeholder='nome de quem apresentou'>" +
+      "<label>QUEM ESTÁ USANDO (nome — e de qual empresa, se for parceiro)</label><input id='bxNome' placeholder='nome de quem apresentou' list='bxParcList' autocomplete='off'>" +
+      "<datalist id='bxParcList'></datalist>" +
+      "<div class='alerta-parc' id='bxAlerta' style='display:none'></div>" +
       "<label>WHATSAPP</label><input id='bxTel' type='tel' placeholder='(11) 9…' inputmode='numeric'>" +
       "<label>CPF</label><input id='bxCpf' type='tel' placeholder='000.000.000-00' inputmode='numeric' maxlength='14'>" +
       "<label>ASSINATURA (assina com o dedo)</label>" +
@@ -796,6 +861,7 @@ function telaBaixa(info, codigo){
       "<label>CASA</label><select id='bxCasaSel'></select>" +
       "</div>" +
       "<button class='botao' id='btnBaixar'>DAR BAIXA</button>" +
+      "<div class='dica-confirma' id='bxDicaConf' style='display:none'></div>" +
       "<div class='dd' id='pinErro'></div>";
   } else if(info.status === "usado"){
     cls = "vermelha"; selo = "✗ JÁ USADO";
@@ -810,7 +876,7 @@ function telaBaixa(info, codigo){
   $("bxResultado").innerHTML = "<div class='valida " + cls + "'>" +
     "<span class='selo'>" + selo + "</span>" +
     (info.valor ? "<div class='vv'>" + fmtRS(info.valor) + "</div>" : "") +
-    (info.nome && info.nome !== "—" ? "<div class='nn'>" + info.nome + "</div>" : "") +
+    (info.status === "nao_encontrado" ? "" : valeBlocoDono(info, dadosDoVale(info.nome))) +
     "<div class='dd'>" + codigo + (info.validade ? " · vale até " + dataBR(info.validade) : "") + "</div>" +
     extra + "</div>";
   const b = $("btnBaixar");
@@ -830,6 +896,25 @@ function telaBaixa(info, codigo){
       const [x,y] = ponto(e); sctx.lineTo(x,y); sctx.stroke(); assinou = true; };
     sc.onpointerup = () => riscando = false;
     $("btnLimpaAssin").onclick = limpaAssin;
+    // de quem é o vale: alerta se o nome é de outro parceiro + 2º toque pra confirmar
+    let confirmaArmado = false;
+    const desarma = () => { confirmaArmado = false; b.classList.remove("confirma-armado");
+      b.textContent = "DAR BAIXA"; $("bxDicaConf").style.display = "none"; };
+    const checaParceiro = () => {
+      const vale = dadosDoVale(info.nome), outro = valeOutroParceiro($("bxNome").value, vale), al = $("bxAlerta");
+      if(outro){
+        al.innerHTML = "⚠️ Esse vale é " + valeEsc(vale.art.toLowerCase()) + "<b>" + valeEsc(vale.base) +
+          "</b> — confere antes.<br><span style='font-weight:normal'>O nome digitado parece ser de " + valeEsc(outro) + ".</span>";
+        al.style.display = "block";
+      } else { al.style.display = "none"; al.innerHTML = ""; }
+      return outro;
+    };
+    ["bxNome","bxTel","bxCpf"].forEach(id => $(id).addEventListener("input", () => { desarma(); checaParceiro(); }));
+    $("bxCasaSel").addEventListener("change", desarma);
+    valeCarregaParceiros().then(() => {
+      $("bxParcList").innerHTML = VALE_PARCEIROS.map(p => "<option value=\"" + valeEsc(p) + "\">").join("");
+      checaParceiro();
+    });
     sb.rpc("crm_casas_para_baixa").then(({ data }) => {
       $("bxCasaSel").innerHTML = (data||[]).map(c =>
         "<option value='" + c.id + "'>" + c.nome + "</option>").join("");
@@ -852,6 +937,15 @@ function telaBaixa(info, codigo){
       if(!cpfValido(cpf)){ $("pinErro").textContent = "CPF inválido — confira os números."; return; }
       if(!assinou){ $("pinErro").textContent = "Falta a assinatura."; return; }
       if(!$("bxCasaSel").value){ $("pinErro").textContent = "Escolha a casa."; return; }
+      const vale = dadosDoVale(info.nome), outro = checaParceiro();
+      if(!confirmaArmado){
+        confirmaArmado = true; b.classList.add("confirma-armado");
+        b.textContent = vale.base ? "✔ CONFIRMO QUE É " + vale.art + vale.rotulo : "✔ CONFIRMO A BAIXA DESTE VALE";
+        $("bxDicaConf").textContent = (outro ? "Atenção ao aviso amarelo. " : "") + "Confira de quem é o vale e toque de novo pra confirmar.";
+        $("bxDicaConf").style.display = "block";
+        return;
+      }
+      desarma();
       b.disabled = true; b.textContent = "DANDO BAIXA…";
       try{
         // sb.rpc = vai com o LOGIN da sessão — sem login o servidor recusa
