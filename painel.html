@@ -712,6 +712,9 @@ $("btnProp").onclick = async () => {
 };
 
 // ==================== BANCO DE EMITIDOS ====================
+function escComanda(v){
+  return String(v).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
+}
 let ctPagina = 0, ctFiltro = "", ctItens = [];
 const CT_POR_PAG = 50;
 // "Marketing WBP (4/20)" -> {base:"Marketing WBP", n:4}; sem sufixo, n = 0
@@ -737,7 +740,7 @@ async function carregarBanco(reset){
   if(reset){ ctPagina = 0; ctItens = []; }
   const busca = $("ctBusca").value.trim();
   let q = sb.from("cupons")
-    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,motivo,emitido_por,usado_por_nome,baixa_por,observacao,casas:casa_uso_id(nome_curto),campanhas(nome)")
+    .select("codigo,nome,valor,tipo,status,validade,emitido_em,usado_em,motivo,emitido_por,usado_por_nome,baixa_por,observacao,comanda,casas:casa_uso_id(nome_curto),campanhas(nome)")
     .order("emitido_em", { ascending:false }).order("nome", { ascending:true })
     .range(ctPagina*CT_POR_PAG, ctPagina*CT_POR_PAG + CT_POR_PAG - 1);
   if(ctFiltro) q = q.eq("status", ctFiltro);
@@ -760,6 +763,7 @@ async function carregarBanco(reset){
       (c.emitido_por ? "<br>por " + c.emitido_por.split("@")[0] +
         (c.motivo ? " — “" + c.motivo + "”" : "") : "") +
       (uso ? "<br>" + uso : "") +
+      (c.status === "usado" && c.comanda ? "<br>🧾 Comanda: " + escComanda(c.comanda) : "") +
       (notas.length ? "<br><span style='color:#ffe48a'>📝 " + valeEsc(notas.join(" · ")) + "</span>" : "") + "</div></div>" +
       "<div class='rs'>" + (c.valor ? fmtRS(c.valor) : "") + "</div>" +
       "<span class='st " + c.status + "'>" + c.status.toUpperCase() + "</span>" +
@@ -859,6 +863,7 @@ function telaBaixa(info, codigo){
       "border-radius:12px;background:#0b0806;touch-action:none'></canvas>" +
       "<button class='mini fantasma' id='btnLimpaAssin' style='margin-top:6px'>limpar assinatura</button>" +
       "<label>CASA</label><select id='bxCasaSel'></select>" +
+      "<label>Nº DA COMANDA</label><input id='bxComanda' type='text' inputmode='text' maxlength='20' required style='text-transform:uppercase'>" +
       "</div>" +
       "<button class='botao' id='btnBaixar'>DAR BAIXA</button>" +
       "<div class='dica-confirma' id='bxDicaConf' style='display:none'></div>" +
@@ -911,6 +916,7 @@ function telaBaixa(info, codigo){
     };
     ["bxNome","bxTel","bxCpf"].forEach(id => $(id).addEventListener("input", () => { desarma(); checaParceiro(); }));
     $("bxCasaSel").addEventListener("change", desarma);
+    $("bxComanda").addEventListener("input", desarma);
     valeCarregaParceiros().then(() => {
       $("bxParcList").innerHTML = VALE_PARCEIROS.map(p => "<option value=\"" + valeEsc(p) + "\">").join("");
       checaParceiro();
@@ -920,6 +926,7 @@ function telaBaixa(info, codigo){
         "<option value='" + c.id + "'>" + c.nome + "</option>").join("");
     });
 
+    $("bxComanda").oninput = () => { $("bxComanda").value = $("bxComanda").value.toUpperCase(); };
     $("bxCpf").oninput = () => {
       const d = $("bxCpf").value.replace(/\D/g,"").slice(0,11);
       $("bxCpf").value = d.replace(/(\d{3})(\d)/,"$1.$2")
@@ -928,10 +935,12 @@ function telaBaixa(info, codigo){
     };
 
     b.onclick = async () => {
+      const comanda = $("bxComanda").value.trim().toUpperCase();
       const nomeUso = $("bxNome").value.trim();
       const tel = $("bxTel").value.replace(/\D/g,"");
       const cpf = $("bxCpf").value.replace(/\D/g,"");
       $("pinErro").textContent = "";
+      if(!/^[A-Z0-9][A-Z0-9 ./-]{0,19}$/.test(comanda)){ $("pinErro").textContent = "Informe o número da comanda."; return; }
       if(!nomeUso){ $("pinErro").textContent = "Preencha quem está usando."; return; }
       if(tel.length < 10 || tel.length > 13){ $("pinErro").textContent = "Preencha o WhatsApp com DDD."; return; }
       if(!cpfValido(cpf)){ $("pinErro").textContent = "CPF inválido — confira os números."; return; }
@@ -951,9 +960,13 @@ function telaBaixa(info, codigo){
         // sb.rpc = vai com o LOGIN da sessão — sem login o servidor recusa
         const { data: r, error } = await sb.rpc("crm_baixar_cupom", {
           p_codigo: codigo, p_casa: $("bxCasaSel").value, p_usado_nome: nomeUso,
-          p_usado_tel: tel, p_cpf: cpf,
+          p_usado_tel: tel, p_cpf: cpf, p_comanda: comanda,
           p_assinatura: sc.toDataURL("image/png") });
         if(error) throw error;
+        if(r.ok === false && r.motivo === "comanda"){
+          $("pinErro").textContent = "Informe o número da comanda.";
+          b.disabled = false; b.textContent = "DAR BAIXA"; return;
+        }
         if(r.ok === false && r.motivo === "login"){ $("pinErro").textContent = "Sessão caiu — faz login de novo.";
           b.disabled = false; b.textContent = "DAR BAIXA"; return; }
         if(r.ok === false && r.motivo === "casa"){ $("pinErro").textContent = "Sem acesso a essa casa.";

@@ -103,6 +103,7 @@
     <div class="caixa oculto" id="staffBaixa">
       <h3>DAR BAIXA</h3>
       <label>CASA</label><select id="bxCasa"></select>
+      <label>Nº DA COMANDA</label><input id="bxComanda" type="text" inputmode="text" maxlength="20" required style="text-transform:uppercase">
       <div id="bxDono"></div>
       <label>QUEM ESTÁ USANDO (nome — e de qual empresa, se for parceiro)</label><input id="bxNome" placeholder="nome de quem apresentou" list="bxParcList" autocomplete="off">
       <datalist id="bxParcList"></datalist>
@@ -288,6 +289,7 @@ async function abreBaixa(){
   $("bxCasa").innerHTML = (casas||[]).map(c =>
     `<option value="${c.id}">${c.nome}</option>`).join("");
   $("staffBaixa").classList.remove("oculto");
+  $("bxComanda").value = "";
   preparaAssinatura();
   desarmaConfirma();
   if(INFO_ATUAL) $("bxDono").innerHTML = valeBlocoDono(INFO_ATUAL, dadosDoVale(INFO_ATUAL.nome));
@@ -317,6 +319,7 @@ function checaParceiro(){
 }
 ["bxNome","bxTel","bxCpf"].forEach(id => $(id).addEventListener("input", () => { desarmaConfirma(); checaParceiro(); }));
 $("bxCasa").addEventListener("change", desarmaConfirma);
+$("bxComanda").addEventListener("input", desarmaConfirma);
 
 $("btnSouEquipe").onclick = () => { $("btnSouEquipe").classList.add("oculto"); abreBaixa(); };
 
@@ -347,6 +350,7 @@ $("sessSair").onclick = async e => {
 mostraSessao();
 
 // CPF: máscara enquanto digita + validação de dígito verificador
+$("bxComanda").oninput = () => { $("bxComanda").value = $("bxComanda").value.toUpperCase(); };
 $("bxCpf").oninput = () => {
   const d = $("bxCpf").value.replace(/\D/g,"").slice(0,11);
   $("bxCpf").value = d.replace(/(\d{3})(\d)/,"$1.$2")
@@ -366,10 +370,12 @@ function cpfValido(v){
 }
 
 $("btnBaixar").onclick = async () => {
+  const comanda = $("bxComanda").value.trim().toUpperCase();
   const nomeUso = $("bxNome").value.trim();
   const tel = $("bxTel").value.replace(/\D/g,"");
   const cpf = $("bxCpf").value.replace(/\D/g,"");
   $("baixaErro").textContent = "";
+  if(!/^[A-Z0-9][A-Z0-9 ./-]{0,19}$/.test(comanda)){ $("baixaErro").textContent = "Informe o número da comanda."; return; }
   if(!nomeUso){ $("baixaErro").textContent = "Preencha quem está usando."; return; }
   if(tel.length < 10 || tel.length > 13){
     $("baixaErro").textContent = "Preencha o WhatsApp com DDD."; return; }
@@ -391,9 +397,13 @@ $("btnBaixar").onclick = async () => {
   try{
     const { data: r, error } = await sb.rpc("crm_baixar_cupom", {
       p_codigo: codigo, p_casa: $("bxCasa").value, p_usado_nome: nomeUso,
-      p_usado_tel: tel, p_cpf: cpf,
+      p_usado_tel: tel, p_cpf: cpf, p_comanda: comanda,
       p_assinatura: $("assin").toDataURL("image/png") });
     if(error) throw error;
+    if(r.ok === false && r.motivo === "comanda"){
+      $("baixaErro").textContent = "Informe o número da comanda.";
+      b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA"; return;
+    }
     if(r.ok === false && r.motivo === "login"){
       $("baixaErro").textContent = "Sessão caiu — faça login de novo.";
       b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA"; return;
@@ -406,6 +416,7 @@ $("btnBaixar").onclick = async () => {
       $("baixaErro").textContent = r.motivo === "cpf" ? "CPF inválido." : "WhatsApp inválido.";
       b.disabled = false; b.textContent = "✔ CONFIRMAR BAIXA"; return;
     }
+    $("bxComanda").value = "";
     mostrar(r);                       // vira JÁ USADO (ou mostra que outro caixa passou na frente)
     navigator.vibrate && navigator.vibrate(120);
   }catch(e){
